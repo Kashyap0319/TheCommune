@@ -301,12 +301,16 @@ async function processChatMessage(userId, messageText, rawMessage = null) {
     if (!interactiveId && messageText) {
         const lower = messageText.trim().toLowerCase();
 
-        // Greetings → restart flow
+        // Greetings → send intro then show menu
         const greetings = ['hi', 'hello', 'hey', 'start', 'hii', 'helo', 'namaste', 'namaskar'];
         if (greetings.includes(lower)) {
             delete sessions[userId];
             const fresh = getSession(userId);
-            return { ...EMPTY, nextStep: FLOW_STEPS[fresh.currentStep] };
+            return {
+                ...EMPTY,
+                replyText: `Hi! Welcome to The Commūn 🏡\n\nFinding a PG or flat near NMIMS shouldn't be stressful — that's exactly why we exist.\n\nHere's what we do:\n✅ Verified PGs & flats near NMIMS / Vile Parle\n✅ Budget options from ₹40K onwards\n✅ Single, double & triple sharing available\n✅ Quick move-ins arranged`,
+                nextStep: FLOW_STEPS[fresh.currentStep],
+            };
         }
 
         // Numbered option (for IG users who type 1,2,3)

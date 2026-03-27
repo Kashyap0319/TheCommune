@@ -200,6 +200,8 @@ app.get('/google/callback', async (req, res) => {
     }
 });
 
+app.get('/admin', (_req, res) => res.redirect('/admin.html'));
+
 app.get('/health', (_req, res) => {
     res.status(200).json({
         status: 'ok',
