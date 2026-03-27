@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact — The Commun</title>
+    <meta name="description" content="Contact The Commun — reach Kanak Murarka on WhatsApp or send an enquiry form.">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <div class="nav-logo">The <span>Commun</span></div>
+    <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="services.html">Services</a></li>
+        <li><a href="contact.html" class="active">Contact</a></li>
+        <li><a href="index.html#find-pg" class="nav-cta">Find My PG</a></li>
+    </ul>
+    <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+    </button>
+</nav>
+
+<!-- HERO -->
+<section class="contact-hero">
+    <div class="section-inner" style="max-width:620px;">
+        <span class="section-label">Contact</span>
+        <h1 class="section-title">Get in <span class="text-accent">Touch</span></h1>
+        <p class="text-muted" style="font-size:1rem;">WhatsApp is fastest. Form works too. We reply within 24 hours.</p>
+    </div>
+</section>
+
+<!-- CONTACT SECTION -->
+<section style="padding-top: 0;">
+    <div class="section-inner">
+        <div class="contact-grid">
+            <div class="contact-info">
+                <h2>Reach Us</h2>
+                <p>The fastest way to reach us is WhatsApp. You can also send an enquiry form and we'll contact you.</p>
+
+                <div class="contact-methods">
+                    <a href="https://wa.me/919999999999" class="contact-method">
+                        <span class="contact-method-icon">💬</span>
+                        <div>
+                            <div class="contact-method-label">WhatsApp (Fastest)</div>
+                            <div class="contact-method-value">+91 99999 99999</div>
+                        </div>
+                    </a>
+                    <a href="https://instagram.com/thecommun" class="contact-method">
+                        <span class="contact-method-icon">📸</span>
+                        <div>
+                            <div class="contact-method-label">Instagram</div>
+                            <div class="contact-method-value">@thecommun</div>
+                        </div>
+                    </a>
+                    <a href="https://instagram.com/thecommun2" class="contact-method">
+                        <span class="contact-method-icon">📸</span>
+                        <div>
+                            <div class="contact-method-label">Instagram (2nd Page)</div>
+                            <div class="contact-method-value">@thecommun2</div>
+                        </div>
+                    </a>
+                    <div class="contact-method" style="cursor:default;">
+                        <span class="contact-method-icon">⏱️</span>
+                        <div>
+                            <div class="contact-method-label">Response Time</div>
+                            <div class="contact-method-value">Within 24 hours</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTACT FORM -->
+            <div class="lead-form">
+                <h3>Send an Enquiry</h3>
+                <form id="leadForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Your Name</label>
+                            <input type="text" id="name" name="name" placeholder="Full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">WhatsApp Number</label>
+                            <input type="tel" id="phone" name="phone" placeholder="10-digit number" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="type">Looking For</label>
+                            <select id="type" name="type" required>
+                                <option value="" disabled selected>Select</option>
+                                <option value="PG">PG</option>
+                                <option value="Flat">Flat</option>
+                                <option value="Both">Both / Undecided</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="area">Preferred Area</label>
+                            <select id="area" name="area" required>
+                                <option value="" disabled selected>Select area</option>
+                                <option value="Vile Parle">Vile Parle</option>
+                                <option value="Andheri West">Andheri West</option>
+                                <option value="Andheri East">Andheri East</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="budget">Budget (per month)</label>
+                            <select id="budget" name="budget" required>
+                                <option value="" disabled selected>Select</option>
+                                <option value="Under 10k">Under ₹10,000</option>
+                                <option value="10k-15k">₹10,000 – ₹15,000</option>
+                                <option value="15k-25k">₹15,000 – ₹25,000</option>
+                                <option value="25k+">₹25,000+</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="movein">Move-in Date</label>
+                            <input type="date" id="movein" name="movein">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-submit">Send Enquiry →</button>
+                    <div class="form-alert" id="formAlert"></div>
+                    <p class="form-note">We'll reach out on WhatsApp within 24 hours.</p>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-inner">
+        <div class="footer-top">
+            <div class="footer-brand">
+                <h3>The <span>Commun</span></h3>
+                <p>PG & flat brokering for students near NMIMS, Vile Parle & Andheri. Run by Kanak Murarka.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Pages</h4>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="about.html">About</a></li>
+                    <li><a href="services.html">Services</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Contact</h4>
+                <ul>
+                    <li><a href="https://wa.me/919999999999">WhatsApp Us</a></li>
+                    <li><a href="https://instagram.com/thecommun">Instagram</a></li>
+                    <li><a href="contact.html">Send Enquiry</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2025 The Commun. All rights reserved.</span>
+            <div class="footer-socials">
+                <a href="https://instagram.com/thecommun">Instagram</a>
+                <a href="https://wa.me/919999999999">WhatsApp</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="js/form.js"></script>
+<script>
+    const hamburger = document.getElementById('hamburger');
+    const navLinks = document.getElementById('navLinks');
+    hamburger.addEventListener('click', () => navLinks.classList.toggle('open'));
+</script>
+</body>
+</html>

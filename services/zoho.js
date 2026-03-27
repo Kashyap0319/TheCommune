@@ -170,6 +170,40 @@ async function searchLeadByPhone(phoneNumber) {
 }
 
 /**
+ * Update an existing Lead in Zoho CRM by ID.
+ */
+async function updateLead(leadId, leadData) {
+    const score = calculateLeadScore(leadData);
+    const assignedAgent = assignAgentByArea(leadData.area);
+    const isHot = score >= 70;
+    const budget = parseBudgetNumber(leadData.budget);
+
+    const payload = {
+        data: [{
+            Area:               leadData.area || '',
+            Budget:             budget,
+            Sharing_Preference: leadData.sharing || '',
+            Move_in_Timeline:   leadData.timeline || '',
+            Contract_Length:    leadData.contract || '',
+            Property_Type:      leadData.property_type || leadData.stayType || '',
+            Lead_Scoring:       score,
+            Hot_Lead:           isHot,
+            Assigned_Agent:     assignedAgent,
+            Last_Messaged_At:   new Date().toISOString().slice(0, 19) + '+05:30',
+        }],
+    };
+
+    return withTokenRetry(async () => {
+        const response = await axios.put(`${ZOHO_BASE_URL}/Leads/${leadId}`, payload, {
+            headers: zohoHeaders(),
+            timeout: ZOHO_TIMEOUT_MS,
+        });
+        logger.info(`[Zoho] Lead ${leadId} updated — Score: ${score}, Hot: ${isHot}`);
+        return response.data;
+    });
+}
+
+/**
  * Create a Note on a Lead in Zoho CRM.
  */
 async function createNote(leadId, title, content) {
@@ -194,6 +228,7 @@ async function createNote(leadId, title, content) {
 
 module.exports = {
     createLead,
+    updateLead,
     searchLeadByPhone,
     createNote,
 };

@@ -26,7 +26,7 @@ if (missing.length > 0) {
 const { sendMessage, sendImageMessage, sendButtonMessage, sendListMessage, getMediaUrl, downloadMedia, sendTemplateMessage } = require('./services/whatsapp');
 const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicReply } = require('./services/instagram');
 const { processChatMessage, formatSearchResults, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
-const { createLead, searchLeadByPhone, createNote } = require('./services/zoho');
+const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
 const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange } = require('./services/automation');
 const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow } = require('./services/google');
 
@@ -247,12 +247,18 @@ app.post('/lead', leadLimiter, async (req, res) => {
     };
 
     try {
-        await createLead(leadData, cleanPhone);
+        const existingWebLead = await searchLeadByPhone(cleanPhone);
+        if (existingWebLead?.id) {
+            await updateLead(existingWebLead.id, leadData);
+            logger.info(`[Website Lead] Updated existing lead for ${cleanPhone}`);
+        } else {
+            await createLead(leadData, cleanPhone);
+            logger.info(`[Website Lead] New lead from ${cleanName} (${cleanPhone})`);
+        }
         enqueueLeadFollowUps(cleanPhone, leadData);
-        logger.info(`[Website Lead] New lead from ${cleanName} (${cleanPhone})`);
         return res.status(200).json({ message: 'Lead received.' });
     } catch (error) {
-        logger.error('[Website Lead] Error creating lead in Zoho:', error.message);
+        logger.error('[Website Lead] Error saving lead in Zoho:', error.message);
         return res.status(500).json({ message: 'Could not save your enquiry. Please try again.' });
     }
 });
@@ -382,14 +388,21 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                 }
 
                 if (leadData) {
-                    const zohoResult = await createLead(leadData, from);
-                    logger.info(`[WhatsApp] Lead created in Zoho. Hot lead: ${isHotLead}`);
+                    const existingLead = await searchLeadByPhone(from);
+                    let zohoResult;
+                    if (existingLead?.id) {
+                        zohoResult = await updateLead(existingLead.id, leadData);
+                        logger.info(`[WhatsApp] Lead updated in Zoho: ${existingLead.id}. Hot lead: ${isHotLead}`);
+                    } else {
+                        zohoResult = await createLead(leadData, from);
+                        logger.info(`[WhatsApp] Lead created in Zoho. Hot lead: ${isHotLead}`);
+                    }
                     enqueueLeadFollowUps(from, leadData);
 
                     // Human handoff → add note on lead in Zoho CRM
                     if (humanHandoff) {
                         try {
-                            const leadId = zohoResult?.data?.[0]?.details?.id;
+                            const leadId = existingLead?.id || zohoResult?.data?.[0]?.details?.id;
                             if (leadId) {
                                 await createNote(leadId,
                                     '👤 Human Handoff Requested',
@@ -829,17 +842,24 @@ app.get('/api/zoho-leads', async (req, res) => {
         const token = tokenRes.data.access_token;
 
         const { area, status } = req.query;
-        let criteria = '';
-        if (area)   criteria += `(Area:equals:${area})`;
-        if (status) criteria += `${criteria ? 'and' : ''}(Lead_Status:equals:${status})`;
+        let leadsRes;
 
-        const params = { per_page: 200 };
-        if (criteria) params.criteria = criteria;
-
-        const leadsRes = await axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
-            params,
-            headers: { Authorization: `Zoho-oauthtoken ${token}` },
-        });
+        if (area || status) {
+            // Use search with criteria
+            const parts = [];
+            if (area)   parts.push(`(Area:equals:${area})`);
+            if (status) parts.push(`(Lead_Status:equals:${status})`);
+            leadsRes = await axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
+                params: { criteria: parts.join('and'), per_page: 200 },
+                headers: { Authorization: `Zoho-oauthtoken ${token}` },
+            });
+        } else {
+            // No filters — get all leads
+            leadsRes = await axios.get('https://www.zohoapis.in/crm/v3/Leads', {
+                params: { per_page: 200, fields: 'Phone' },
+                headers: { Authorization: `Zoho-oauthtoken ${token}` },
+            });
+        }
 
         const leads = leadsRes.data?.data || [];
         const phones = leads

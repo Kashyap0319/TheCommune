@@ -1,15 +1,20 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 
-const { WA_PHONE_NUMBER_ID, WA_ACCESS_TOKEN } = process.env;
+const { WA_ACCESS_TOKEN } = process.env;
+
+const WA_API_VERSION = process.env.WA_API_VERSION || 'v18.0';
+const WA_TIMEOUT_MS = 10000;
 
 /**
  * Send a generic text message back to the WhatsApp user.
  * @param {string} to - The recipient's phone number
  * @param {string} text - The message to send
+ * @param {string} phoneNumberId - The sending phone number ID
  */
-async function sendMessage(to, text) {
+async function sendMessage(to, text, phoneNumberId) {
     try {
-        const url = `https://graph.facebook.com/v18.0/${WA_PHONE_NUMBER_ID}/messages`;
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
         const data = {
             messaging_product: 'whatsapp',
             to: to,
@@ -21,11 +26,11 @@ async function sendMessage(to, text) {
             'Content-Type': 'application/json',
         };
 
-        const response = await axios.post(url, data, { headers });
-        console.log(`Successfully sent message to ${to}`);
+        const response = await axios.post(url, data, { headers, timeout: WA_TIMEOUT_MS });
+        logger.info(`[WA] Sent message to ${to}`);
         return response.data;
     } catch (error) {
-        console.error(`Failed to send message to ${to}:`, error.response?.data || error.message);
+        logger.error(`[WA] Failed to send message to ${to}:`, error.response?.data || error.message);
         throw error;
     }
 }
@@ -34,11 +39,12 @@ async function sendMessage(to, text) {
  * Sends a pre-approved template message to start a conversation to the WhatsApp user.
  * @param {string} to - The recipient's phone number
  * @param {string} templateName - The name of the template
+ * @param {string} phoneNumberId - The sending phone number ID
  * @param {string} language - The language code (e.g., 'en_US')
  */
-async function sendTemplateMessage(to, templateName, language = 'en_US') {
+async function sendTemplateMessage(to, templateName, phoneNumberId, language = 'en_US') {
     try {
-        const url = `https://graph.facebook.com/v18.0/${WA_PHONE_NUMBER_ID}/messages`;
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
         const data = {
             messaging_product: 'whatsapp',
             to: to,
@@ -54,11 +60,11 @@ async function sendTemplateMessage(to, templateName, language = 'en_US') {
             'Content-Type': 'application/json',
         };
 
-        const response = await axios.post(url, data, { headers });
-        console.log(`Successfully sent template '${templateName}' to ${to}`);
+        const response = await axios.post(url, data, { headers, timeout: WA_TIMEOUT_MS });
+        logger.info(`[WA] Sent template '${templateName}' to ${to}`);
         return response.data;
     } catch (error) {
-        console.error(`Failed to send template to ${to}:`, error.response?.data || error.message);
+        logger.error(`[WA] Failed to send template to ${to}:`, error.response?.data || error.message);
         throw error;
     }
 }
@@ -70,12 +76,12 @@ async function sendTemplateMessage(to, templateName, language = 'en_US') {
  */
 async function getMediaUrl(mediaId) {
     try {
-        const url = `https://graph.facebook.com/v18.0/${mediaId}`;
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${mediaId}`;
         const headers = { 'Authorization': `Bearer ${WA_ACCESS_TOKEN}` };
-        const response = await axios.get(url, { headers });
+        const response = await axios.get(url, { headers, timeout: WA_TIMEOUT_MS });
         return response.data.url;
     } catch (error) {
-        console.error(`Failed to get media URL for ${mediaId}:`, error.response?.data || error.message);
+        logger.error(`[WA] Failed to get media URL for ${mediaId}:`, error.response?.data || error.message);
         throw error;
     }
 }
@@ -89,11 +95,134 @@ async function downloadMedia(url) {
     try {
         const response = await axios.get(url, {
             headers: { 'Authorization': `Bearer ${WA_ACCESS_TOKEN}` },
-            responseType: 'stream'
+            responseType: 'stream',
+            timeout: 30000,
         });
         return response;
     } catch (error) {
-        console.error(`Failed to download media from ${url}:`, error.response?.data || error.message);
+        logger.error(`[WA] Failed to download media:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Send an image message with optional caption via WhatsApp.
+ * @param {string} to - The recipient's phone number
+ * @param {string} imageUrl - Public URL of the image
+ * @param {string} caption - Caption text for the image
+ * @param {string} phoneNumberId - The sending phone number ID
+ */
+async function sendImageMessage(to, imageUrl, caption = '', phoneNumberId) {
+    try {
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
+        const data = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'image',
+            image: {
+                link: imageUrl,
+                caption: caption,
+            },
+        };
+
+        const headers = {
+            'Authorization': `Bearer ${WA_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+        };
+
+        const response = await axios.post(url, data, { headers, timeout: WA_TIMEOUT_MS });
+        logger.info(`[WA] Sent image to ${to}`);
+        return response.data;
+    } catch (error) {
+        logger.error(`[WA] Failed to send image to ${to}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Send a WhatsApp interactive button message (max 3 buttons).
+ * @param {string} to - Recipient phone number
+ * @param {string} bodyText - The message body text
+ * @param {Array} buttons - Array of { id, title } objects (max 3)
+ * @param {string} phoneNumberId - The sending phone number ID
+ */
+async function sendButtonMessage(to, bodyText, buttons, phoneNumberId) {
+    try {
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
+        const data = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'interactive',
+            interactive: {
+                type: 'button',
+                body: { text: bodyText },
+                action: {
+                    buttons: buttons.map(btn => ({
+                        type: 'reply',
+                        reply: { id: btn.id, title: btn.title }
+                    }))
+                }
+            }
+        };
+
+        const headers = {
+            'Authorization': `Bearer ${WA_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+        };
+
+        const response = await axios.post(url, data, { headers, timeout: WA_TIMEOUT_MS });
+        logger.info(`[WA] Sent button message to ${to}`);
+        return response.data;
+    } catch (error) {
+        logger.error(`[WA] Failed to send button message to ${to}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Send a WhatsApp interactive list message (up to 10 options).
+ * @param {string} to - Recipient phone number
+ * @param {string} bodyText - The message body text
+ * @param {string} buttonLabel - The label on the list button (e.g. "Select Option")
+ * @param {Array} rows - Array of { id, title, description? } objects
+ * @param {string} phoneNumberId - The sending phone number ID
+ */
+async function sendListMessage(to, bodyText, buttonLabel, rows, phoneNumberId) {
+    try {
+        const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
+        const data = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'interactive',
+            interactive: {
+                type: 'list',
+                body: { text: bodyText },
+                action: {
+                    button: buttonLabel,
+                    sections: [
+                        {
+                            title: 'Options',
+                            rows: rows.map(row => ({
+                                id: row.id,
+                                title: row.title,
+                                ...(row.description ? { description: row.description } : {})
+                            }))
+                        }
+                    ]
+                }
+            }
+        };
+
+        const headers = {
+            'Authorization': `Bearer ${WA_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+        };
+
+        const response = await axios.post(url, data, { headers, timeout: WA_TIMEOUT_MS });
+        logger.info(`[WA] Sent list message to ${to}`);
+        return response.data;
+    } catch (error) {
+        logger.error(`[WA] Failed to send list message to ${to}:`, error.response?.data || error.message);
         throw error;
     }
 }
@@ -101,6 +230,9 @@ async function downloadMedia(url) {
 module.exports = {
     sendMessage,
     sendTemplateMessage,
+    sendImageMessage,
+    sendButtonMessage,
+    sendListMessage,
     getMediaUrl,
     downloadMedia,
 };
