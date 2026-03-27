@@ -465,44 +465,9 @@ Chat with us on WhatsApp to find your place and get matched with the best availa
             }
         }
 
-        // 2b. INSTAGRAM COMMENT HANDLER
-        const change = entry.changes?.[0]?.value;
-        if (change?.item === 'comment' && change?.verb === 'add') {
-            const commentId = change.id;
-            const msg_body = change.text;
-            const senderId = change.from.id;
-            const username = change.from.username || 'there';
-
-            logger.info(`[Instagram Comment] From ${username} (${senderId}): ${msg_body}`);
-
-            try {
-                const publicReplyMessage = `@${username} Hey! 👋 We help NMIMS & Vile Parle students find verified PGs & flats — Vile Parle, Andheri, Bandra & nearby. Chat with us on WhatsApp to get matched: https://wa.me/919653240644`;
-                try {
-                    await sendInstagramPublicReply(commentId, publicReplyMessage);
-                } catch (publicErr) {
-                    logger.error('[Instagram Comment] Failed to send public reply:', publicErr.message);
-                }
-
-                const dmMessage = `Hey @${username}! 👋 Thanks for your interest in The Commun.
-
-We help NMIMS & Vile Parle students find the perfect PG or flat — verified options, honest pricing, zero broker drama.
-
-Here's what we offer:
-✅ Verified PGs & Flats near NMIMS / Vile Parle
-✅ Areas: Vile Parle, Andheri, Bandra & nearby
-✅ Budget options from 8K to 35K+
-✅ Single, double & triple sharing available
-✅ Quick move-ins arranged
-
-Chat with us on WhatsApp to find your place:
-👉 https://wa.me/919653240644`;
-
-                await sendInstagramPrivateReply(commentId, dmMessage);
-                logger.info('[Instagram Comment] Sent public reply + DM with WhatsApp redirect.');
-            } catch (error) {
-                logger.error('[Instagram Comment] Error processing message:', error.message);
-            }
-        }
+        // 2b. INSTAGRAM COMMENT HANDLER — auto-reply disabled (team handles manually)
+        // const change = entry.changes?.[0]?.value;
+        // (comment auto-replies removed to prevent unwanted bot messages on every post)
 
         return;
     }
