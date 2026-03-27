@@ -1,104 +1,199 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 
 const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN } = process.env;
 
-// In a real app, you should securely store and refresh the access token. 
-// For simplicity, we'll keep it in memory and refresh when it expires or is missing.
+const ZOHO_BASE_URL = process.env.ZOHO_BASE_URL || 'https://www.zohoapis.in/crm/v3';
+const ZOHO_AUTH_URL = process.env.ZOHO_AUTH_URL || 'https://accounts.zoho.in/oauth/v2/token';
+const ZOHO_TIMEOUT_MS = 15000;
+
 let currentAccessToken = null;
 
 async function refreshZohoToken() {
     try {
-        const response = await axios.post('https://accounts.zoho.in/oauth/v2/token', null, {
-            // Use zoho.in if your account is in Indian DC. Otherwise use zoho.com
+        const response = await axios.post(ZOHO_AUTH_URL, null, {
             params: {
                 refresh_token: ZOHO_REFRESH_TOKEN,
                 client_id: ZOHO_CLIENT_ID,
                 client_secret: ZOHO_CLIENT_SECRET,
-                grant_type: 'refresh_token'
-            }
+                grant_type: 'refresh_token',
+            },
+            timeout: ZOHO_TIMEOUT_MS,
         });
 
         if (response.data.access_token) {
             currentAccessToken = response.data.access_token;
-            console.log("Successfully refreshed Zoho access token.");
+            logger.info('[Zoho] Access token refreshed');
         } else {
-            throw new Error("Failed to get access token from response.");
+            throw new Error('No access_token in Zoho response');
         }
     } catch (error) {
-        console.error("Error refreshing Zoho token:", error.response?.data || error.message);
+        logger.error('[Zoho] Token refresh failed:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+function zohoHeaders() {
+    return {
+        'Authorization': `Zoho-oauthtoken ${currentAccessToken}`,
+        'Content-Type': 'application/json',
+    };
+}
+
+async function withTokenRetry(fn) {
+    if (!currentAccessToken) await refreshZohoToken();
+    try {
+        return await fn();
+    } catch (error) {
+        if (error.response?.status === 401) {
+            logger.info('[Zoho] Token expired, refreshing and retrying...');
+            await refreshZohoToken();
+            return await fn();
+        }
         throw error;
     }
 }
 
 /**
  * Creates a Lead in Zoho CRM.
- * @param {object} leadData - The data extracted by the chatbot
- * @param {string} phoneNumber - The user's phone number
  */
-async function createLead(leadData, phoneNumber) {
-    if (!currentAccessToken) {
-        await refreshZohoToken();
-    }
+// Lead scoring logic
+function calculateLeadScore(leadData) {
+    let score = 0;
+    const timeline = (leadData.timeline || '').toLowerCase();
+    const budget = (leadData.budget || '').toLowerCase();
 
-    // Create the payload for Zoho CRM.
-    // Note: These field names (e.g., 'Preferred_Area') must match your exact 
-    // Custom Field API names in Zoho CRM.
+    // Timeline scoring
+    if (timeline.includes('7 days') || timeline.includes('within 7')) score += 50;
+    else if (timeline.includes('1 month') || timeline.includes('within 1')) score += 30;
+    else score += 10;
+
+    // Budget scoring
+    if (budget.includes('25,000') || budget.includes('above')) score += 30;
+    else if (budget.includes('18,000') || budget.includes('12,000')) score += 20;
+    else score += 10;
+
+    // Area scoring
+    const area = (leadData.area || '').toLowerCase();
+    if (area.includes('vile parle') || area.includes('andheri')) score += 20;
+    else score += 10;
+
+    return Math.min(score, 100);
+}
+
+// Auto-assign by area — picks first from comma-separated pool
+function assignAgentByArea(area) {
+    const a = (area || '').toLowerCase();
+    const pick = (envVal) => (envVal || '').split(',')[0].trim() || process.env.KANAK_PHONE_NUMBER;
+    if (a.includes('vile parle') || a.includes('andheri') || a.includes('svkm') || a.includes('juhu'))
+        return pick(process.env.AGENT_PHONE_VILEPARLE);
+    if (a.includes('bandra') || a.includes('bkc') || a.includes('santacruz'))
+        return pick(process.env.AGENT_PHONE_BANDRA);
+    if (a.includes('kharghar') || a.includes('navi'))
+        return pick(process.env.AGENT_PHONE_NAVI);
+    return pick(process.env.AGENT_PHONE_OTHER) || process.env.KANAK_PHONE_NUMBER;
+}
+
+// Parse max budget number from strings like "₹8k-12k", "Under ₹8,000", "Above ₹25,000"
+function parseBudgetNumber(budgetStr) {
+    if (!budgetStr) return null;
+    const s = String(budgetStr).replace(/[₹,\s]/g, '').toLowerCase();
+    // Handle shorthand like 8k, 25k
+    const nums = s.match(/\d+(\.\d+)?k?/g) || [];
+    const values = nums.map(n => n.endsWith('k') ? parseFloat(n) * 1000 : parseFloat(n));
+    if (values.length === 0) return null;
+    return Math.max(...values); // use upper bound
+}
+
+async function createLead(leadData, phoneNumber) {
+    const score = calculateLeadScore(leadData);
+    const assignedAgent = assignAgentByArea(leadData.area);
+    const isHot = score >= 70;
+    const source = leadData.source || 'WhatsApp Chatbot';
+    const budget = parseBudgetNumber(leadData.budget);
+
     const payload = {
-        data: [
-            {
-                Last_Name: `Lead from WhatsApp (${phoneNumber})`, // Last_Name is mandatory in Zoho standard
-                Phone: phoneNumber,
-                Lead_Source: "WhatsApp Chatbot",
-                // Map your AI generated data to custom fields here
-                Desired_Area: leadData.area,      // Example custom field API Name
-                Budget_Range: leadData.budget,    // Example custom field API Name
-                Occupancy_Type: leadData.sharing, // Example custom field API Name
-                Move_In_Timeline: leadData.timeline,
-                Contract_Duration: leadData.contract
-            }
-        ]
+        data: [{
+            Last_Name: leadData.name || `Lead (${phoneNumber})`,
+            Phone: phoneNumber,
+            Lead_Source: source,
+            Area: leadData.area || '',
+            Budget: budget,
+            Sharing_Preference: leadData.sharing || '',
+            Move_in_Timeline: leadData.timeline || '',
+            Contract_Length: leadData.contract || '',
+            Property_Type: leadData.property_type || leadData.stayType || '',
+            Lead_Status: 'New Lead',
+            Lead_Scoring: score,
+            Hot_Lead: isHot,
+            Assigned_Agent: assignedAgent,
+            Source_Channel: source,
+            Last_Messaged_At: new Date().toISOString().slice(0, 19).replace('T', 'T') + '+05:30',
+        }],
     };
 
-    try {
-        const response = await axios.post(
-            'https://www.zohoapis.in/crm/v3/Leads', // Use .in or .com depending on your DC
-            payload,
-            {
-                headers: {
-                    'Authorization': `Zoho-oauthtoken ${currentAccessToken}`,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-
-        console.log("Successfully created lead in Zoho:", response.data);
+    return withTokenRetry(async () => {
+        const response = await axios.post(`${ZOHO_BASE_URL}/Leads`, payload, {
+            headers: zohoHeaders(),
+            timeout: ZOHO_TIMEOUT_MS,
+        });
+        logger.info(`[Zoho] Lead created — Score: ${score}, Hot: ${isHot}, Agent: ${assignedAgent}`);
         return response.data;
+    });
+}
 
+/**
+ * Search for a Lead in Zoho CRM by phone number.
+ */
+async function searchLeadByPhone(phoneNumber) {
+    if (!phoneNumber) return null;
+
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+
+    try {
+        return await withTokenRetry(async () => {
+            const response = await axios.get(`${ZOHO_BASE_URL}/Leads/search`, {
+                params: { phone: cleanPhone },
+                headers: zohoHeaders(),
+                timeout: ZOHO_TIMEOUT_MS,
+            });
+            if (response.data?.data?.length > 0) {
+                logger.info(`[Zoho] Found lead for ${cleanPhone}: ${response.data.data[0].id}`);
+                return response.data.data[0];
+            }
+            return null;
+        });
     } catch (error) {
-        // If unauthorized, token might have expired. Try refreshing once.
-        if (error.response && error.response.status === 401) {
-            console.log("Zoho token expired. Attempting to refresh and retry...");
-            await refreshZohoToken();
-            // Retry the request
-            const retryResponse = await axios.post(
-                'https://www.zohoapis.in/crm/v3/Leads',
-                payload,
-                {
-                    headers: {
-                        'Authorization': `Zoho-oauthtoken ${currentAccessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-            console.log("Successfully created lead in Zoho on retry:", retryResponse.data);
-            return retryResponse.data;
-        }
-
-        console.error("Error creating lead in Zoho:", error.response?.data || error.message);
-        throw error;
+        logger.error('[Zoho] searchLeadByPhone error:', error.response?.data || error.message);
+        return null;
     }
 }
 
+/**
+ * Create a Note on a Lead in Zoho CRM.
+ */
+async function createNote(leadId, title, content) {
+    const payload = {
+        data: [{
+            Note_Title: title,
+            Note_Content: content,
+            Parent_Id: leadId,
+            se_module: 'Leads',
+        }],
+    };
+
+    return withTokenRetry(async () => {
+        const response = await axios.post(`${ZOHO_BASE_URL}/Notes`, payload, {
+            headers: zohoHeaders(),
+            timeout: ZOHO_TIMEOUT_MS,
+        });
+        logger.info(`[Zoho] Note created on lead ${leadId}`);
+        return response.data;
+    });
+}
+
 module.exports = {
-    createLead
+    createLead,
+    searchLeadByPhone,
+    createNote,
 };
