@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Commun — Admin Panel</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #1a1a1a;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #1a1a2e;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        header h1 { font-size: 18px; font-weight: 600; }
+        header span { font-size: 13px; opacity: 0.6; }
+
+        .container { max-width: 700px; margin: 32px auto; padding: 0 16px; }
+
+        /* LOGIN */
+        #login-screen {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        #login-screen h2 { margin-bottom: 8px; font-size: 20px; }
+        #login-screen p  { color: #666; margin-bottom: 24px; font-size: 14px; }
+        #login-screen input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        #login-screen input:focus { border-color: #1a1a2e; }
+        #login-error { color: #e53e3e; font-size: 13px; margin-bottom: 8px; display: none; }
+
+        /* PANEL */
+        #panel { display: none; }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .card .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+        label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #444; }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            resize: vertical;
+        }
+        textarea:focus, input[type="text"]:focus { border-color: #1a1a2e; }
+
+        .phone-count {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            text-align: right;
+        }
+        .char-count.warn { color: #e53e3e; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #25d366; color: white; }
+        .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+
+        /* PROGRESS */
+        #progress-box { display: none; margin-top: 20px; }
+        .progress-bar-wrap {
+            background: #eee;
+            border-radius: 100px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: #25d366;
+            border-radius: 100px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-label { font-size: 13px; color: #555; }
+
+        /* RESULT */
+        #result-box { display: none; margin-top: 16px; }
+        .result-ok  { background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 14px; color: #276749; font-size: 14px; }
+        .result-err { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 14px; color: #c53030; font-size: 14px; }
+
+        /* TIPS */
+        .tips { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 8px; padding: 14px; font-size: 13px; color: #744210; line-height: 1.7; }
+        .tips strong { display: block; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>The Commun — Admin Panel</h1>
+        <span>Internal use only</span>
+    </div>
+</header>
+
+<!-- LOGIN -->
+<div class="container">
+    <div id="login-screen">
+        <h2>🔐 Admin Login</h2>
+        <p>Enter the admin password to continue</p>
+        <div id="login-error">Wrong password. Try again.</div>
+        <input type="password" id="password-input" placeholder="Enter password" />
+        <button class="btn btn-primary" id="login-btn" style="width:100%">Login</button>
+    </div>
+
+    <!-- MAIN PANEL -->
+    <div id="panel">
+
+        <!-- BULK MESSAGE -->
+        <div class="card">
+            <h2>📣 Send Bulk WhatsApp Message</h2>
+            <p class="subtitle">Paste phone numbers and type your message — we'll send it to everyone.</p>
+
+            <div style="margin-bottom:16px">
+                <label>Phone Numbers</label>
+
+                <!-- Load from Zoho -->
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="load-all-btn" style="padding:8px 14px;font-size:13px;">📋 Load All from Zoho</button>
+                    <select id="area-filter" style="padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;outline:none;">
+                        <option value="">All Areas</option>
+                        <option value="Vile Parle">Vile Parle</option>
+                        <option value="Andheri West">Andheri West</option>
+                        <option value="Andheri East">Andheri East</option>
+                        <option value="Bandra">Bandra</option>
+                    </select>
+                    <select id="status-filter" style="padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;outline:none;">
+                        <option value="">All Statuses</option>
+                        <option value="New Lead">New Lead</option>
+                        <option value="Contacted">Contacted</option>
+                        <option value="Visit Scheduled">Visit Scheduled</option>
+                    </select>
+                </div>
+                <div id="load-status" style="font-size:12px;color:#888;margin-bottom:6px;"></div>
+
+                <textarea id="phones-input" rows="6"
+                    placeholder="Paste numbers here — one per line&#10;9819XXXXXX&#10;9920XXXXXX&#10;9768XXXXXX&#10;&#10;Or click 'Load All from Zoho' above"></textarea>
+                <div class="phone-count" id="phone-count">0 numbers</div>
+            </div>
+
+            <div style="margin-bottom:20px">
+                <label>Message</label>
+                <textarea id="message-input" rows="5"
+                    placeholder="Type your message here...&#10;&#10;Example: Hey! 👋 New PG options available in Vile Parle starting ₹10,000/mo. Reply YES to see listings!"></textarea>
+                <div class="char-count" id="char-count">0 / 1024 characters</div>
+            </div>
+
+            <div class="tips" style="margin-bottom:20px">
+                <strong>💡 Tips before sending</strong>
+                Keep messages short and friendly. Don't send more than once a week to the same people.
+                Avoid words like "FREE", "OFFER", "WIN" — WhatsApp may flag them.
+            </div>
+
+            <button class="btn btn-primary" id="send-btn">
+                <span>📤</span> Send to All
+            </button>
+
+            <div id="progress-box">
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-label" id="progress-label">Sending...</div>
+            </div>
+
+            <div id="result-box"></div>
+        </div>
+
+        <!-- LOGOUT -->
+        <div style="text-align:center; margin-bottom: 40px;">
+            <button id="logout-btn" style="background:none;border:none;color:#888;font-size:13px;cursor:pointer;">
+                Logout
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const SESSION_KEY = 'tc_admin_key';
+
+    // ── LOGIN ──────────────────────────────────────────────
+    function login() {
+        const pw = document.getElementById('password-input').value.trim();
+        if (!pw) return;
+
+        // Verify against server
+        fetch('/api/admin-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: pw })
+        })
+        .then(r => {
+            if (r.ok) {
+                sessionStorage.setItem(SESSION_KEY, pw);
+                showPanel();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        })
+        .catch(() => {
+            document.getElementById('login-error').style.display = 'block';
+        });
+    }
+
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('password-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') login();
+    });
+
+    function logout() {
+        sessionStorage.removeItem(SESSION_KEY);
+        document.getElementById('panel').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'block';
+        document.getElementById('password-input').value = '';
+    }
+
+    function showPanel() {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('panel').style.display = 'block';
+    }
+
+    // Auto-login if session exists
+    if (sessionStorage.getItem(SESSION_KEY)) showPanel();
+
+    // ── PHONE COUNT ────────────────────────────────────────
+    document.getElementById('phones-input').addEventListener('input', updatePhoneCount);
+    function updatePhoneCount() {
+        const lines = getPhones();
+        document.getElementById('phone-count').textContent = lines.length + ' number' + (lines.length !== 1 ? 's' : '');
+    }
+
+    function getPhones() {
+        return document.getElementById('phones-input').value
+            .split(/[\n,;]+/)
+            .map(p => p.replace(/\D/g, '').slice(-10))
+            .filter(p => p.length === 10);
+    }
+
+    // ── CHAR COUNT ─────────────────────────────────────────
+    document.getElementById('message-input').addEventListener('input', updateCharCount);
+    function updateCharCount() {
+        const len = document.getElementById('message-input').value.length;
+        const el  = document.getElementById('char-count');
+        el.textContent = len + ' / 1024 characters';
+        el.className = 'char-count' + (len > 900 ? ' warn' : '');
+    }
+
+    // ── SEND BULK ──────────────────────────────────────────
+    async function sendBulk() {
+        const phones  = getPhones();
+        const message = document.getElementById('message-input').value.trim();
+        const apiKey  = sessionStorage.getItem(SESSION_KEY);
+
+        if (phones.length === 0) {
+            alert('Please paste at least one valid phone number.');
+            return;
+        }
+        if (!message) {
+            alert('Please type a message.');
+            return;
+        }
+        if (message.length > 1024) {
+            alert('Message is too long. Keep it under 1024 characters.');
+            return;
+        }
+        if (!confirm(`Send this message to ${phones.length} people?\n\n"${message.substring(0,100)}${message.length>100?'...':''}"`)) {
+            return;
+        }
+
+        const btn = document.getElementById('send-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> Sending...';
+
+        document.getElementById('progress-box').style.display = 'block';
+        document.getElementById('result-box').style.display   = 'none';
+        document.getElementById('progress-fill').style.width  = '10%';
+        document.getElementById('progress-label').textContent = `Sending to ${phones.length} people...`;
+
+        try {
+            const res = await fetch('/api/bulk-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                },
+                body: JSON.stringify({ phones: phones.map(p => '91' + p), message })
+            });
+
+            document.getElementById('progress-fill').style.width = '100%';
+
+            const resultBox = document.getElementById('result-box');
+            resultBox.style.display = 'block';
+
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('progress-label').textContent = 'Done!';
+                resultBox.innerHTML = `<div class="result-ok">
+                    ✅ <strong>Messages queued for ${data.accepted} people!</strong><br>
+                    WhatsApp will deliver them over the next few minutes.
+                </div>`;
+                // Clear form
+                document.getElementById('phones-input').value = '';
+                document.getElementById('message-input').value = '';
+                updatePhoneCount();
+                updateCharCount();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                resultBox.innerHTML = `<div class="result-err">❌ Error: ${err.error || 'Something went wrong. Try again.'}</div>`;
+                document.getElementById('progress-label').textContent = 'Failed.';
+            }
+        } catch (err) {
+            document.getElementById('result-box').style.display  = 'block';
+            document.getElementById('result-box').innerHTML      = `<div class="result-err">❌ Could not connect to server. Is it running?</div>`;
+            document.getElementById('progress-label').textContent = 'Failed.';
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<span>📤</span> Send to All';
+    }
+
+    // ── WIRE UP BUTTONS ────────────────────────────────────
+    document.getElementById('send-btn').addEventListener('click', sendBulk);
+    document.getElementById('logout-btn').addEventListener('click', logout);
+
+    // ── LOAD FROM ZOHO ─────────────────────────────────────
+    document.getElementById('load-all-btn').addEventListener('click', async function() {
+        const apiKey = sessionStorage.getItem(SESSION_KEY);
+        const area   = document.getElementById('area-filter').value;
+        const status = document.getElementById('status-filter').value;
+        const statusEl = document.getElementById('load-status');
+
+        this.disabled = true;
+        this.textContent = '⏳ Loading...';
+        statusEl.textContent = 'Fetching from Zoho CRM...';
+
+        try {
+            const params = new URLSearchParams();
+            if (area)   params.append('area', area);
+            if (status) params.append('status', status);
+
+            const res  = await fetch('/api/zoho-leads?' + params.toString(), {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || 'Failed');
+
+            // Fill phone textarea (10-digit format)
+            const lines = data.phones.map(p => p.slice(-10)).join('\n');
+            document.getElementById('phones-input').value = lines;
+            updatePhoneCount();
+            statusEl.textContent = `✅ Loaded ${data.total} numbers from Zoho`;
+        } catch (err) {
+            statusEl.textContent = '❌ ' + err.message;
+        }
+
+        this.disabled = false;
+        this.textContent = '📋 Load All from Zoho';
+    });
+</script>
+
+</body>
+</html>

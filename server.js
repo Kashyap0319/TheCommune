@@ -39,12 +39,14 @@ app.set('trust proxy', 1);
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
+            defaultSrc:    ["'self'"],
+            scriptSrc:     ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://unpkg.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            styleSrc:      ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc:       ["'self'", "https://fonts.gstatic.com"],
+            imgSrc:        ["'self'", "data:", "https:"],
+            connectSrc:    ["'self'"],
+            frameSrc:      ["https://calendly.com"],
         },
     },
 }));
@@ -328,6 +330,17 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
                 if (isText || isInteractive) {
                     const msg_body = isText ? message.text?.body : null;
+
+                    // Auto-save number to Zoho on first contact (even before flow completes)
+                    try {
+                        const existing = await searchLeadByPhone(from);
+                        if (!existing) {
+                            await createLead({ source: 'WhatsApp Chatbot', area: '', budget: '', property_type: '' }, from);
+                            logger.info(`[WhatsApp] New contact auto-saved to Zoho: ${from}`);
+                        }
+                    } catch (e) {
+                        logger.warn(`[WhatsApp] Auto-save to Zoho failed for ${from}:`, e.message);
+                    }
 
                     const { replyText, nextStep, leadData, searchFilters, isHotLead, humanHandoff }
                         = await processChatMessage(from, msg_body, message);
@@ -792,6 +805,52 @@ app.post('/api/admin-auth', (req, res) => {
         return res.status(200).json({ ok: true });
     }
     return res.status(401).json({ error: 'Invalid key' });
+});
+
+// ----------------------------------------------------
+// ADMIN: LOAD LEADS FROM ZOHO (for bulk broadcast)
+// GET /api/zoho-leads?area=Vile+Parle&status=New+Lead
+// ----------------------------------------------------
+app.get('/api/zoho-leads', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const axios = require('axios');
+        const tokenRes = await axios.post('https://accounts.zoho.in/oauth/v2/token', null, {
+            params: {
+                refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+                client_id:     process.env.ZOHO_CLIENT_ID,
+                client_secret: process.env.ZOHO_CLIENT_SECRET,
+                grant_type:    'refresh_token',
+            },
+        });
+        const token = tokenRes.data.access_token;
+
+        const { area, status } = req.query;
+        let criteria = '';
+        if (area)   criteria += `(Area:equals:${area})`;
+        if (status) criteria += `${criteria ? 'and' : ''}(Lead_Status:equals:${status})`;
+
+        const params = { per_page: 200 };
+        if (criteria) params.criteria = criteria;
+
+        const leadsRes = await axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
+            params,
+            headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        });
+
+        const leads = leadsRes.data?.data || [];
+        const phones = leads
+            .map(l => (l.Phone || '').replace(/[^0-9]/g, ''))
+            .filter(p => p.length >= 10);
+
+        res.json({ total: phones.length, phones });
+    } catch (err) {
+        logger.error('[Admin] zoho-leads error:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Failed to fetch leads from Zoho' });
+    }
 });
 
 // ----------------------------------------------------
