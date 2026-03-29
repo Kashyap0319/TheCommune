@@ -527,6 +527,64 @@ async function detectSearchIntent(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GEMINI LISTING RANKER — ranks all listings by relevance to student filters
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function rankListingsWithAI(filters, listings) {
+    if (!listings || listings.length === 0) return [];
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: 'application/json' },
+        });
+
+        const listingSummaries = listings.map((l, i) => ({
+            index: i,
+            id: l.listingId,
+            status: l.status,
+            area: l.area,
+            bhk: l.bhk,
+            rent: l.rent,
+            furnishing: l.furnishing,
+            floor: l.floor,
+            amenities: l.amenities,
+            availableDate: l.availableDate,
+        }));
+
+        const prompt = `You are a property matching assistant for a Mumbai student housing platform.
+
+Student requirements:
+- Area: ${filters.area || 'Any'}
+- Max budget: ${filters.maxBudget ? '₹' + filters.maxBudget + '/month' : 'Any'}
+- Property type/BHK: ${filters.bhk || 'Any'}
+
+Available listings (some may be CLOSED/taken):
+${JSON.stringify(listingSummaries, null, 2)}
+
+Task: Rank ALL listings by how well they match the student's requirements.
+- AVAILABLE listings that match closely → score 80-100
+- AVAILABLE listings that partially match → score 50-79
+- CLOSED listings that would have matched well → score 20-49 (these are "recently taken" examples)
+- Irrelevant listings → score 0-19
+
+Return a JSON array of objects: [{ "index": number, "score": number }]
+Sorted by score descending. Include ALL listings.`;
+
+        const result = await model.generateContent(prompt);
+        const raw = result.response.text().trim().replace(/```json|```/g, '').trim();
+        const ranked = JSON.parse(raw);
+
+        return ranked
+            .filter(r => r.score > 15)
+            .map(r => ({ ...listings[r.index], score: r.score }));
+    } catch (err) {
+        logger.warn('[Gemini] Ranking failed, falling back to original order:', err.message);
+        return listings;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FORMAT SEARCH RESULTS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -535,21 +593,52 @@ function formatSearchResults(results) {
         return `😔 No matching listings found right now.\n\nWe'll notify you as soon as something comes in! Our team will also manually search for the best options.`;
     }
 
-    let msg = `🏘️ *Found ${results.length} matching listing${results.length > 1 ? 's' : ''}:*\n\n`;
-    results.slice(0, 5).forEach((r, i) => {
-        msg += `*${i + 1}. ${r.bhk} — ${r.area}*\n`;
-        msg += `💰 Rent: ₹${r.rent}/month\n`;
-        if (r.furnishing && r.furnishing !== 'N/A') msg += `🛋️ ${r.furnishing}\n`;
-        if (r.availableDate && r.availableDate !== 'N/A') msg += `📅 Available: ${r.availableDate}\n`;
-        if (r.floor && r.floor !== 'N/A') msg += `🏢 Floor: ${r.floor}\n`;
-        if (r.amenities) msg += `✨ ${r.amenities}\n`;
-        if (r.photoLinks && r.photoLinks.length > 0) msg += `📸 ${r.photoLinks.length} photo(s) — sending below\n`;
-        if (r.videoLinks && r.videoLinks.length > 0) {
-            msg += `🎥 Video${r.videoLinks.length > 1 ? 's' : ''}:\n`;
-            r.videoLinks.forEach((v, vi) => msg += `   Video ${vi + 1}: ${v}\n`);
-        }
+    const available = results.filter(r => r.status === 'AVAILABLE').slice(0, 4);
+    const closed    = results.filter(r => r.status !== 'AVAILABLE').slice(0, 2);
+
+    let msg = '';
+
+    if (available.length > 0) {
+        msg += `🏘️ *${available.length} listing${available.length > 1 ? 's' : ''} available for you:*\n\n`;
+        available.forEach((r, i) => {
+            const title = [r.bhk, r.area].filter(Boolean).join(' — ');
+            msg += `*${i + 1}. ${title || 'Property'}*\n`;
+            if (r.rent)          msg += `💰 ₹${r.rent}/month\n`;
+            if (r.furnishing)    msg += `🛋️ ${r.furnishing}\n`;
+            if (r.floor)         msg += `🏢 Floor: ${r.floor}\n`;
+            if (r.availableDate) msg += `📅 Available: ${r.availableDate}\n`;
+            if (r.amenities)     msg += `✨ ${r.amenities}\n`;
+            if (r.photoLinks && r.photoLinks.length > 0) msg += `📸 ${r.photoLinks.length} photo(s) below\n`;
+            if (r.videoLinks && r.videoLinks.length > 0) {
+                r.videoLinks.forEach((v, vi) => msg += `🎥 Video ${vi + 1}: ${v}\n`);
+            }
+            msg += `\n`;
+        });
+    }
+
+    if (closed.length > 0) {
+        msg += `🔒 *Similar options (recently taken):*\n`;
+        closed.forEach((r) => {
+            const title = [r.bhk, r.area].filter(Boolean).join(' — ');
+            msg += `• ${title || 'Property'}${r.rent ? ' — ₹' + r.rent + '/mo' : ''} _(taken)_\n`;
+        });
         msg += `\n`;
-    });
+    }
+
+    if (available.length === 0) {
+        msg = `😔 No exact matches available right now.\n\n`;
+        if (closed.length > 0) {
+            msg += `🔒 *Similar options that were recently available:*\n`;
+            closed.forEach((r) => {
+                const title = [r.bhk, r.area].filter(Boolean).join(' — ');
+                msg += `• ${title || 'Property'}${r.rent ? ' — ₹' + r.rent + '/mo' : ''} _(taken)_\n`;
+            });
+            msg += `\n`;
+        }
+        msg += `New listings come in daily — our team will reach out as soon as something matches!`;
+        return msg;
+    }
+
     msg += `_Questions? Reply anytime — our team will follow up!_`;
     return msg;
 }
@@ -666,6 +755,7 @@ async function transcribeAndSummarizeCall(audioBuffer, mimeType) {
 module.exports = {
     processChatMessage,
     formatSearchResults,
+    rankListingsWithAI,
     parsePropertyListing,
     extractInteractiveId,
     generateListingConfirmation,

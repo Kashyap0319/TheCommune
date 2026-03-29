@@ -25,7 +25,7 @@ if (missing.length > 0) {
 // Import services
 const { sendMessage, sendImageMessage, sendButtonMessage, sendListMessage, getMediaUrl, downloadMedia, sendTemplateMessage } = require('./services/whatsapp');
 const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicReply } = require('./services/instagram');
-const { processChatMessage, formatSearchResults, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
+const { processChatMessage, formatSearchResults, rankListingsWithAI, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
 const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
 const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange } = require('./services/automation');
 const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow } = require('./services/google');
@@ -351,30 +351,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                     const { replyText, nextStep, leadData, searchFilters, isHotLead, humanHandoff }
                         = await processChatMessage(from, msg_body, message);
 
-                // PROPERTY SEARCH (Module F — Flow 2)
-                if (searchFilters) {
-                    logger.info(`[WhatsApp] Search request:`, searchFilters);
-                    const results = await searchInventory(searchFilters);
-                    const searchReply = formatSearchResults(results);
-                    await sendMessage(from, searchReply, phoneNumberId);
-
-                    for (const listing of results.slice(0, 5)) {
-                        // Send all photos
-                        if (listing.photoLinks && listing.photoLinks.length > 0) {
-                            for (let pi = 0; pi < listing.photoLinks.length; pi++) {
-                                const caption = pi === 0
-                                    ? `📸 *${listing.bhk} — ${listing.area}* | ₹${listing.rent}/mo (Photo ${pi + 1}/${listing.photoLinks.length})`
-                                    : `Photo ${pi + 1}/${listing.photoLinks.length}`;
-                                try {
-                                    await sendImageMessage(from, listing.photoLinks[pi], caption, phoneNumberId);
-                                } catch (imgErr) {
-                                    logger.error(`[WhatsApp] Photo ${pi + 1} send failed for listing ${listing.listingId}:`, imgErr.message);
-                                }
-                            }
-                        }
-                    }
-                }
-
+                // Send confirmation / reply text FIRST
                 if (replyText) {
                     await sendMessage(from, replyText, phoneNumberId);
                 }
@@ -384,6 +361,33 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                         await sendButtonMessage(from, nextStep.question, nextStep.options, phoneNumberId);
                     } else if (nextStep.inputType === 'list') {
                         await sendListMessage(from, nextStep.question, nextStep.buttonLabel, nextStep.options, phoneNumberId);
+                    }
+                }
+
+                // PROPERTY SEARCH (Module F — Flow 2) — runs AFTER confirmation msg
+                if (searchFilters) {
+                    logger.info(`[WhatsApp] Search request:`, searchFilters);
+                    const allListings = await searchInventory(searchFilters);
+                    const ranked = await rankListingsWithAI(searchFilters, allListings);
+                    const searchReply = formatSearchResults(ranked);
+                    await sendMessage(from, searchReply, phoneNumberId);
+
+                    // Send photos only for AVAILABLE listings
+                    const availableWithPhotos = ranked
+                        .filter(r => r.status === 'AVAILABLE' && r.photoLinks?.length > 0)
+                        .slice(0, 4);
+
+                    for (const listing of availableWithPhotos) {
+                        for (let pi = 0; pi < listing.photoLinks.length; pi++) {
+                            const caption = pi === 0
+                                ? `📸 *${[listing.bhk, listing.area].filter(Boolean).join(' — ')}*${listing.rent ? ' | ₹' + listing.rent + '/mo' : ''} (${pi + 1}/${listing.photoLinks.length})`
+                                : `Photo ${pi + 1}/${listing.photoLinks.length}`;
+                            try {
+                                await sendImageMessage(from, listing.photoLinks[pi], caption, phoneNumberId);
+                            } catch (imgErr) {
+                                logger.error(`[WhatsApp] Photo send failed for ${listing.listingId}:`, imgErr.message);
+                            }
+                        }
                     }
                 }
 

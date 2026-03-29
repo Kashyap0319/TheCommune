@@ -189,19 +189,24 @@ async function searchInventory(filters) {
                 availableDate, floor, amenities,
                 p1, p2, p3, p4, v1, v2] = rows[i];
 
-            if (!status || status.toUpperCase() !== 'AVAILABLE') continue;
+            if (!listingId) continue;
 
+            const isAvailable = !status || status.toUpperCase() === 'AVAILABLE';
+
+            // Area filter — loose match both ways
             if (filters.area && area) {
-                const nf = filters.area.toLowerCase().trim();
-                const na = area.toLowerCase().trim();
+                const nf = filters.area.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const na = area.toLowerCase().replace(/[^a-z0-9]/g, '');
                 if (!na.includes(nf) && !nf.includes(na)) continue;
             }
 
-            if (filters.maxBudget && rent) {
+            // Budget filter — only apply to available listings
+            if (isAvailable && filters.maxBudget && rent) {
                 const numericRent = parseInt(String(rent).replace(/[^0-9]/g, ''), 10);
-                if (!isNaN(numericRent) && numericRent > filters.maxBudget) continue;
+                if (!isNaN(numericRent) && numericRent > filters.maxBudget * 1.2) continue; // 20% tolerance
             }
 
+            // BHK filter
             if (filters.bhk && bhkType) {
                 if (!bhkType.toLowerCase().includes(filters.bhk.toLowerCase())) continue;
             }
@@ -212,20 +217,20 @@ async function searchInventory(filters) {
             results.push({
                 listingId: listingId || `ROW-${i + 1}`,
                 rowNumber: i + 1,
-                area: area || 'N/A',
-                bhk: bhkType || 'N/A',
-                rent: rent || 'N/A',
-                furnishing: furnishing || 'N/A',
-                availableDate: availableDate || 'N/A',
-                floor: floor || '',
-                amenities: amenities || '',
-                mediaLinks: [...photoLinks, ...videoLinks],
+                status: isAvailable ? 'AVAILABLE' : 'CLOSED',
+                area:          area          || '',
+                bhk:           bhkType       || '',
+                rent:          rent          || '',
+                furnishing:    furnishing    || '',
+                availableDate: availableDate || '',
+                floor:         floor         || '',
+                amenities:     amenities     || '',
                 photoLinks,
                 videoLinks,
             });
         }
 
-        logger.info(`[Search] Found ${results.length} matching listings for filters:`, filters);
+        logger.info(`[Search] Found ${results.length} listings (available+closed) for filters:`, filters);
         return results;
     } catch (error) {
         logger.error('Error searching inventory sheet:', error);
