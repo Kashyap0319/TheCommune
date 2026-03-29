@@ -60,7 +60,7 @@ const FLOW_STEPS = {
         inputType: 'list',
         buttonLabel: 'Choose Area',
         options: [
-            { id: 'area_svkm',    title: 'Vile Parle & nearby',  description: 'VP, Juhu, Andheri W — near SVKM' },
+            { id: 'area_svkm',    title: 'Vile Parle & nearby',  description: 'VP, Juhu, Andheri West — near SVKM' },
             { id: 'area_atlas',   title: 'BKC / Bandra',          description: 'BKC, Santacruz, Bandra — near ATLAS' },
             { id: 'area_south',   title: 'South Bombay',          description: 'Fort, Mahalaxmi — Xaviers, Jai Hind, KC' },
             { id: 'area_navi',    title: 'Navi Mumbai',            description: 'Kharghar — near NMIMS Navi Mumbai' },
@@ -84,8 +84,23 @@ const FLOW_STEPS = {
         ],
         nextMap: {
             stay_hostel: 'PG_GENDER',
-            stay_flat:   'FLAT_POSSESSION',
+            stay_flat:   'FLAT_SUB_AREA',
         },
+    },
+
+    // ── FLAT SUB-AREA (VP West, VP East, Juhu, Andheri W) ──
+    FLAT_SUB_AREA: {
+        key: 'sub_area',
+        question: '📍 Which specific area are you looking in?',
+        inputType: 'list',
+        buttonLabel: 'Choose Area',
+        options: [
+            { id: 'sub_vpw',  title: 'Vile Parle West',  description: 'SV Road, Irla, Juhu Lane & more' },
+            { id: 'sub_vpe',  title: 'Vile Parle East',  description: 'Nehru Rd, Sahar Rd, WEH & more' },
+            { id: 'sub_juhu', title: 'Juhu',              description: 'Juhu Tara Rd, JVPD & more' },
+            { id: 'sub_andw', title: 'Andheri West',      description: 'Link Road, SV Road & more' },
+        ],
+        next: 'FLAT_POSSESSION',
     },
 
     // ── PG / HOSTEL FLOW (only 2 questions) ──
@@ -227,10 +242,13 @@ const OPTION_LABELS = {
     entry_college: 'College Group Link', entry_admission: 'Admission Info',
     entry_tickets: 'Tickets', entry_hostels: 'Hostels / Flats',
     // Areas
-    area_svkm: 'Vile Parle / Juhu / Andheri W', area_atlas: 'BKC / Santacruz / Bandra',
+    area_svkm: 'Vile Parle / Juhu / Andheri West', area_atlas: 'BKC / Santacruz / Bandra',
     area_south: 'Fort / Mahalaxmi (South Bombay)', area_navi: 'Kharghar (Navi Mumbai)',
     // Stay type
     stay_hostel: 'PG / Hostel', stay_flat: 'Flat / Serviced Flat',
+    // Sub-areas (flats)
+    sub_vpw: 'Vile Parle West', sub_vpe: 'Vile Parle East',
+    sub_juhu: 'Juhu', sub_andw: 'Andheri West',
     // Gender
     gender_girls: 'Only Girls', gender_boys: 'Only Boys',
     gender_coed_open: 'Co-ed (No restrictions)', gender_coed_sep: 'Co-ed (Separate wings)',
@@ -261,21 +279,62 @@ const OPTION_LABELS = {
     fl4_250_300: '₹2.50L – ₹3L/mo', fl4_300p: '₹3L+/mo',
 };
 
-// Budget option ID → max numeric value for inventory search
-const BUDGET_MAX = {
-    // PG annual → monthly equivalent for search
-    'pg_bud_u3': 25000, 'pg_bud_3_3.5': 29000, 'pg_bud_4_5.5': 46000,
-    'pg_bud_5.5_7': 58000, 'pg_bud_7_8.5': 71000, 'pg_bud_8.5_10': 83000,
-    pg_bud_10p: 999999, pg_bud_15p: 999999,
-    // Flat 1 BHK
-    fl1_75_85: 85000, fl1_85_100: 100000, fl1_100p: 999999,
+// Budget option ID → { min, max } numeric range for inventory search
+// Hostels: show selected range + everything above as "above budget"
+// Flats: selected range + next range as "in budget", rest as "above budget"
+const BUDGET_RANGE = {
+    // PG annual → monthly equivalent
+    'pg_bud_u3':     { min: 0,      max: 25000 },
+    'pg_bud_3_3.5':  { min: 25000,  max: 29167 },
+    'pg_bud_4_5.5':  { min: 33333,  max: 45833 },
+    'pg_bud_5.5_7':  { min: 45833,  max: 58333 },
+    'pg_bud_7_8.5':  { min: 58333,  max: 70833 },
+    'pg_bud_8.5_10': { min: 70833,  max: 83333 },
+    pg_bud_10p:      { min: 83333,  max: 999999 },
+    pg_bud_15p:      { min: 125000, max: 999999 },
+    // Flat 1 BHK (selected + next range combined as "in budget")
+    fl1_75_85:  { min: 75000,  max: 100000 },
+    fl1_85_100: { min: 85000,  max: 999999 },
+    fl1_100p:   { min: 100000, max: 999999 },
     // Flat 2 BHK
-    fl2_95_110: 110000, fl2_110_125: 125000, fl2_125_140: 140000, fl2_140p: 999999,
+    fl2_95_110:  { min: 95000,  max: 125000 },
+    fl2_110_125: { min: 110000, max: 140000 },
+    fl2_125_140: { min: 125000, max: 999999 },
+    fl2_140p:    { min: 140000, max: 999999 },
     // Flat 3 BHK
-    fl3_140_160: 160000, fl3_160_180: 180000, fl3_180_200: 200000, fl3_200p: 999999,
+    fl3_140_160: { min: 140000, max: 180000 },
+    fl3_160_180: { min: 160000, max: 200000 },
+    fl3_180_200: { min: 180000, max: 999999 },
+    fl3_200p:    { min: 200000, max: 999999 },
     // Flat 4 BHK
-    fl4_180_200: 200000, fl4_220_250: 250000, fl4_250_300: 300000, fl4_300p: 999999,
+    fl4_180_200: { min: 180000, max: 250000 },
+    fl4_220_250: { min: 220000, max: 300000 },
+    fl4_250_300: { min: 250000, max: 999999 },
+    fl4_300p:    { min: 300000, max: 999999 },
 };
+
+// BHK option ID → search variants (include half-BHK above)
+const BHK_VARIANTS = {
+    bhk_1: ['1 bhk', '1bhk', '1.5 bhk', '1.5bhk'],
+    bhk_2: ['2 bhk', '2bhk', '2.5 bhk', '2.5bhk'],
+    bhk_3: ['3 bhk', '3bhk', '3.5 bhk', '3.5bhk'],
+    bhk_4: ['4 bhk', '4bhk', '4.5 bhk', '4.5bhk'],
+};
+
+// Possession month → months to search
+// First available month: selected + next; others: prev + selected + next
+function getPossessionMonths(selectedMonth, availableOptions) {
+    const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+    const sel = selectedMonth.toLowerCase();
+    const idx = MONTHS.indexOf(sel);
+    if (idx === -1) return [selectedMonth];
+
+    const firstAvailable = availableOptions?.[0]?.title?.toLowerCase();
+    const result = [MONTHS[idx]];
+    if (sel !== firstAvailable && idx > 0) result.push(MONTHS[idx - 1]);
+    if (idx < 11) result.push(MONTHS[idx + 1]);
+    return result.map(m => m.charAt(0).toUpperCase() + m.slice(1));
+}
 
 // College group form link (Kanak to update)
 const COLLEGE_GROUP_FORM = process.env.COLLEGE_GROUP_FORM_URL || 'https://forms.gle/cEni27LvQ5PKDt229';
@@ -383,9 +442,23 @@ function processChoice(userId, session, stepDef, chosenId) {
     // Save answer
     session.data[stepDef.key] = OPTION_LABELS[chosenId] || chosenId;
 
-    // Save budget numeric for search
-    if (BUDGET_MAX[chosenId]) {
-        session.data.budgetMaxNumeric = BUDGET_MAX[chosenId];
+    // Save budget range for search (min = don't show below, max = "in budget" upper limit)
+    if (BUDGET_RANGE[chosenId]) {
+        session.data.budgetMinNumeric = BUDGET_RANGE[chosenId].min;
+        session.data.budgetMaxNumeric = BUDGET_RANGE[chosenId].max;
+    }
+
+    // Save BHK search variants (1 BHK → also search 1.5 BHK, etc.)
+    if (BHK_VARIANTS[chosenId]) {
+        session.data.bhkVariants = BHK_VARIANTS[chosenId];
+    }
+
+    // Compute possession months for search (May → May+June, June → May+June+July, etc.)
+    if (stepDef.key === 'possession' && session.data.possession) {
+        session.data.possessionMonths = getPossessionMonths(
+            session.data.possession,
+            FLOW_STEPS.FLAT_POSSESSION.options
+        );
     }
 
     // Track which flow branch
@@ -475,7 +548,7 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     // Build lead data for Zoho
     const leadData = {
         property_type: stayType,
-        area:          d.area        || 'N/A',
+        area:          d.sub_area || d.area || 'N/A',
         budget:        d.budget      || 'N/A',
         gender:        d.gender      || '',
         bhk:           d.bhk         || '',
@@ -487,20 +560,26 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     let searchFilters = null;
     if (!humanHandoff) {
         searchFilters = {};
-        if (d.area) searchFilters.area = d.area;
+        if (d.sub_area) searchFilters.area = d.sub_area;
+        else if (d.area) searchFilters.area = d.area;
+        if (d.budgetMinNumeric !== undefined) searchFilters.minBudget = d.budgetMinNumeric;
         if (d.budgetMaxNumeric) searchFilters.maxBudget = d.budgetMaxNumeric;
-        if (d.bhk) searchFilters.bhk = d.bhk;
+        if (d.bhkVariants) searchFilters.bhkVariants = d.bhkVariants;
+        else if (d.bhk) searchFilters.bhk = d.bhk;
+        if (d.possessionMonths) searchFilters.possessionMonths = d.possessionMonths;
     }
 
     // Confirmation message
     let msg = `✅ *Got it! Here's what we found for you:*\n\n`;
     msg += `🏠 Type: *${stayType}*\n`;
-    if (d.area)       msg += `📍 Area: *${d.area}*\n`;
+    if (d.sub_area)   msg += `📍 Area: *${d.sub_area}*\n`;
+    else if (d.area)  msg += `📍 Area: *${d.area}*\n`;
     if (d.gender)     msg += `👤 Preference: *${d.gender}*\n`;
     if (d.bhk)        msg += `🏗️ BHK: *${d.bhk}*\n`;
     msg += `💰 Budget: *${d.budget || 'N/A'}*\n`;
     if (timeline)     msg += `📅 Move-in: *${timeline}*\n`;
-    if (possession)   msg += `📅 Possession: *${possession}*\n`;
+    if (d.possessionMonths) msg += `📅 Showing for: *${d.possessionMonths.join(', ')}*\n`;
+    else if (possession)    msg += `📅 Possession: *${possession}*\n`;
 
     msg += `\n🔍 *Searching our inventory for the best matches...*`;
 
@@ -635,27 +714,37 @@ function formatSearchResults(results) {
         return `😔 No matching listings found right now.\n\nWe'll notify you as soon as something comes in! Our team will also manually search for the best options.`;
     }
 
-    const available = results.filter(r => r.status === 'AVAILABLE').slice(0, 4);
-    const closed    = results.filter(r => r.status !== 'AVAILABLE').slice(0, 2);
+    const inBudget    = results.filter(r => r.status === 'AVAILABLE' && !r.aboveBudget).slice(0, 5);
+    const aboveBudget = results.filter(r => r.status === 'AVAILABLE' && r.aboveBudget).slice(0, 3);
+    const closed      = results.filter(r => r.status !== 'AVAILABLE').slice(0, 2);
+
+    function formatListing(r, num) {
+        let s = '';
+        const title = [r.bhk, r.area].filter(Boolean).join(' — ');
+        s += `*${num}. ${title || 'Property'}*\n`;
+        if (r.rent)          s += `💰 ₹${r.rent}/month\n`;
+        if (r.furnishing)    s += `🛋️ ${r.furnishing}\n`;
+        if (r.floor)         s += `🏢 Floor: ${r.floor}\n`;
+        if (r.availableDate) s += `📅 Available: ${r.availableDate}\n`;
+        if (r.amenities)     s += `✨ ${r.amenities}\n`;
+        if (r.photoLinks && r.photoLinks.length > 0) s += `📸 ${r.photoLinks.length} photo(s) below\n`;
+        if (r.videoLinks && r.videoLinks.length > 0) {
+            r.videoLinks.forEach((v, vi) => s += `🎥 Video ${vi + 1}: ${v}\n`);
+        }
+        s += `\n`;
+        return s;
+    }
 
     let msg = '';
 
-    if (available.length > 0) {
-        msg += `🏘️ *${available.length} listing${available.length > 1 ? 's' : ''} available for you:*\n\n`;
-        available.forEach((r, i) => {
-            const title = [r.bhk, r.area].filter(Boolean).join(' — ');
-            msg += `*${i + 1}. ${title || 'Property'}*\n`;
-            if (r.rent)          msg += `💰 ₹${r.rent}/month\n`;
-            if (r.furnishing)    msg += `🛋️ ${r.furnishing}\n`;
-            if (r.floor)         msg += `🏢 Floor: ${r.floor}\n`;
-            if (r.availableDate) msg += `📅 Available: ${r.availableDate}\n`;
-            if (r.amenities)     msg += `✨ ${r.amenities}\n`;
-            if (r.photoLinks && r.photoLinks.length > 0) msg += `📸 ${r.photoLinks.length} photo(s) below\n`;
-            if (r.videoLinks && r.videoLinks.length > 0) {
-                r.videoLinks.forEach((v, vi) => msg += `🎥 Video ${vi + 1}: ${v}\n`);
-            }
-            msg += `\n`;
-        });
+    if (inBudget.length > 0) {
+        msg += `🏘️ *${inBudget.length} listing${inBudget.length > 1 ? 's' : ''} in your budget:*\n\n`;
+        inBudget.forEach((r, i) => { msg += formatListing(r, i + 1); });
+    }
+
+    if (aboveBudget.length > 0) {
+        msg += `💡 *These are above your budget but you can still check out:*\n\n`;
+        aboveBudget.forEach((r, i) => { msg += formatListing(r, inBudget.length + i + 1); });
     }
 
     if (closed.length > 0) {
@@ -667,7 +756,7 @@ function formatSearchResults(results) {
         msg += `\n`;
     }
 
-    if (available.length === 0) {
+    if (inBudget.length === 0 && aboveBudget.length === 0) {
         msg = `😔 No exact matches available right now.\n\n`;
         if (closed.length > 0) {
             msg += `🔒 *Similar options that were recently available:*\n`;

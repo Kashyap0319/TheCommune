@@ -1056,6 +1056,86 @@ app.post('/api/send-followup', apiLimiter, async (req, res) => {
 
 
 // ----------------------------------------------------
+// GOOGLE FORM WEBHOOKS → ZOHO CRM
+// Flat form & Hostel form submissions via Google Apps Script
+// ----------------------------------------------------
+app.post('/form-webhook/flat', express.json(), async (req, res) => {
+    try {
+        const { name, phone, area, budget, bhk, possession, source } = req.body;
+        if (!phone) return res.status(400).json({ error: 'Phone is required' });
+
+        const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+        if (!PHONE_REGEX.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Invalid phone number' });
+        }
+
+        const leadData = {
+            name: name || '',
+            property_type: 'Flat',
+            area: area || '',
+            budget: budget || '',
+            bhk: bhk || '',
+            possession: possession || '',
+            timeline: possession || '',
+            source: source || 'Google Form (Flat)',
+        };
+
+        const existing = await searchLeadByPhone(cleanPhone);
+        if (existing?.id) {
+            await updateLead(existing.id, leadData);
+            logger.info(`[Form Flat] Updated existing lead for ${cleanPhone}`);
+        } else {
+            await createLead(leadData, cleanPhone);
+            logger.info(`[Form Flat] New lead: ${name || cleanPhone}`);
+        }
+        enqueueLeadFollowUps(cleanPhone, leadData);
+
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        logger.error('[Form Flat] Error:', error.message);
+        return res.status(500).json({ error: 'Failed to save lead' });
+    }
+});
+
+app.post('/form-webhook/hostel', express.json(), async (req, res) => {
+    try {
+        const { name, phone, area, budget, gender, sharing, timeline, source } = req.body;
+        if (!phone) return res.status(400).json({ error: 'Phone is required' });
+
+        const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+        if (!PHONE_REGEX.test(cleanPhone)) {
+            return res.status(400).json({ error: 'Invalid phone number' });
+        }
+
+        const leadData = {
+            name: name || '',
+            property_type: 'PG / Hostel',
+            area: area || '',
+            budget: budget || '',
+            gender: gender || '',
+            sharing: sharing || '',
+            timeline: timeline || '',
+            source: source || 'Google Form (Hostel)',
+        };
+
+        const existing = await searchLeadByPhone(cleanPhone);
+        if (existing?.id) {
+            await updateLead(existing.id, leadData);
+            logger.info(`[Form Hostel] Updated existing lead for ${cleanPhone}`);
+        } else {
+            await createLead(leadData, cleanPhone);
+            logger.info(`[Form Hostel] New lead: ${name || cleanPhone}`);
+        }
+        enqueueLeadFollowUps(cleanPhone, leadData);
+
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        logger.error('[Form Hostel] Error:', error.message);
+        return res.status(500).json({ error: 'Failed to save lead' });
+    }
+});
+
+// ----------------------------------------------------
 // GRACEFUL SHUTDOWN
 // ----------------------------------------------------
 function shutdown(signal) {

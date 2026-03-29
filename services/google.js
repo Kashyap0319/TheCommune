@@ -202,6 +202,14 @@ function extractUrl(cell) {
  * @param {object} filters - { area: string, maxBudget: number, bhk?: string }
  * @returns {Array} Array of matching listing objects
  */
+// Sub-area → known roads mapping (for road-level search matching)
+const AREA_ROADS = {
+    'vile parle west': ['sv road', 'swami vivekanand', 'tejpal', 'irla', 'juhu lane', 'dadabhai road', 'lallubhai', 'gulmohar road', 'vallabhbhai patel', 'mg road', 'subhash road', 'hanuman road', 'jvpd', 'ns road'],
+    'vile parle east': ['nehru road', 'hanuman road', 'sahar', 'subhash road', 'dixit', 'nanda patkar', 'domestic airport', 'western express', 'jawaharlal nehru', 'sv road', 'ns phadke'],
+    'juhu': ['juhu tara', 'gulmohar', 'vaikunthlal mehta', 'ns road no 10', 'juhu church', 'janki kutir', 'dadabhai cross', 'indradhanush', 'indrawadan oza', 'parulekar', 'jvpd', 'cd barfiwala'],
+    'andheri west': ['link road', 'sv road', 'andheri west'],
+};
+
 async function searchInventory(filters) {
     try {
         const rows = await getSheetRows();
@@ -218,22 +226,47 @@ async function searchInventory(filters) {
 
             const isAvailable = !status || status.toUpperCase() === 'AVAILABLE';
 
-            // Area filter — loose match both ways
+            // Area filter — loose match + road-level matching
             if (filters.area && area) {
                 const nf = filters.area.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const na = area.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (!na.includes(nf) && !nf.includes(na)) continue;
+                let areaMatch = na.includes(nf) || nf.includes(na);
+
+                // Road-level matching: check if listing area mentions a road in the selected sub-area
+                if (!areaMatch) {
+                    const roads = AREA_ROADS[filters.area.toLowerCase()];
+                    if (roads) {
+                        const areaLower = area.toLowerCase();
+                        areaMatch = roads.some(road => areaLower.includes(road));
+                    }
+                }
+                if (!areaMatch) continue;
             }
 
-            // Budget filter — only apply to available listings
-            if (isAvailable && filters.maxBudget && rent) {
+            // Budget filter — exclude below minimum, flag above maximum
+            let aboveBudget = false;
+            if (isAvailable && rent) {
                 const numericRent = parseInt(String(rent).replace(/[^0-9]/g, ''), 10);
-                if (!isNaN(numericRent) && numericRent > filters.maxBudget * 1.2) continue; // 20% tolerance
+                if (!isNaN(numericRent)) {
+                    if (filters.minBudget !== undefined && numericRent < filters.minBudget) continue;
+                    if (filters.maxBudget && filters.maxBudget < 999999 && numericRent > filters.maxBudget) aboveBudget = true;
+                }
             }
 
-            // BHK filter
-            if (filters.bhk && bhkType) {
+            // BHK filter — support variant matching (1 BHK + 1.5 BHK, etc.)
+            if (filters.bhkVariants && bhkType) {
+                const bhkLower = bhkType.toLowerCase().replace(/\s+/g, '');
+                const matches = filters.bhkVariants.some(v => bhkLower.includes(v.replace(/\s+/g, '')));
+                if (!matches) continue;
+            } else if (filters.bhk && bhkType) {
                 if (!bhkType.toLowerCase().includes(filters.bhk.toLowerCase())) continue;
+            }
+
+            // Possession / available date filter — match against multiple months
+            if (filters.possessionMonths && availableDate) {
+                const dateLower = availableDate.toLowerCase();
+                const matches = filters.possessionMonths.some(m => dateLower.includes(m.toLowerCase()));
+                if (!matches) continue;
             }
 
             const photoLinks = [p1, p2, p3, p4].map(extractUrl).filter(Boolean);
@@ -252,6 +285,7 @@ async function searchInventory(filters) {
                 amenities:     amenities     || '',
                 photoLinks,
                 videoLinks,
+                aboveBudget,
             });
         }
 
