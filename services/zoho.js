@@ -87,17 +87,27 @@ function calculateLeadScore(leadData) {
     return Math.min(score, 100);
 }
 
-// Auto-assign by area — picks first from comma-separated pool
+// Round-robin counters per area pool (in-memory, resets on restart — acceptable)
+const rrCounters = {};
+function roundRobin(envVal, key) {
+    const pool = (envVal || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!pool.length) return process.env.KANAK_PHONE_NUMBER;
+    if (!rrCounters[key]) rrCounters[key] = 0;
+    const pick = pool[rrCounters[key] % pool.length];
+    rrCounters[key]++;
+    return pick;
+}
+
+// Auto-assign by area — round-robin across all agents in the pool
 function assignAgentByArea(area) {
     const a = (area || '').toLowerCase();
-    const pick = (envVal) => (envVal || '').split(',')[0].trim() || process.env.KANAK_PHONE_NUMBER;
     if (a.includes('vile parle') || a.includes('andheri') || a.includes('svkm') || a.includes('juhu'))
-        return pick(process.env.AGENT_PHONE_VILEPARLE);
+        return roundRobin(process.env.AGENT_PHONE_VILEPARLE, 'vileparle');
     if (a.includes('bandra') || a.includes('bkc') || a.includes('santacruz'))
-        return pick(process.env.AGENT_PHONE_BANDRA);
+        return roundRobin(process.env.AGENT_PHONE_BANDRA, 'bandra');
     if (a.includes('kharghar') || a.includes('navi'))
-        return pick(process.env.AGENT_PHONE_NAVI);
-    return pick(process.env.AGENT_PHONE_OTHER) || process.env.KANAK_PHONE_NUMBER;
+        return roundRobin(process.env.AGENT_PHONE_NAVI, 'navi');
+    return roundRobin(process.env.AGENT_PHONE_OTHER, 'other') || process.env.KANAK_PHONE_NUMBER;
 }
 
 // Parse max budget number from strings like "₹3L–₹3.5L/yr", "₹85K–₹1L/mo", "Above ₹25,000"
