@@ -117,6 +117,19 @@ const FLOW_STEPS = {
             { id: 'pg_bud_10p',    title: '₹10,00,000+' },
             { id: 'pg_bud_15p',    title: '₹15L+ (Single sharing)' },
         ],
+        next: 'PG_TIMELINE',
+    },
+
+    // ── PG MOVE-IN TIMELINE (determines hot lead) ──
+    PG_TIMELINE: {
+        key: 'timeline',
+        question: '📅 When do you need to move in?',
+        inputType: 'button',
+        options: [
+            { id: 'tl_7d',    title: 'Within 7 days' },
+            { id: 'tl_1mo',   title: 'Within 1 month' },
+            { id: 'tl_later', title: 'After 1 month' },
+        ],
         next: 'DONE',
     },
 
@@ -126,13 +139,15 @@ const FLOW_STEPS = {
         question: '📅 When do you need possession?\n\n_Be a little flexible — flats get sold out very early!_',
         inputType: 'list',
         buttonLabel: 'Choose Month',
-        options: [
-            { id: 'poss_apr', title: 'April' },
-            { id: 'poss_may', title: 'May' },
-            { id: 'poss_jun', title: 'June' },
-            { id: 'poss_jul', title: 'July' },
-            { id: 'poss_aug', title: 'August' },
-        ],
+        get options() {
+            const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const now = new Date();
+            return Array.from({ length: 6 }, (_, i) => {
+                const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                const name = MONTHS[d.getMonth()];
+                return { id: `poss_${name.toLowerCase().slice(0,3)}`, title: name };
+            });
+        },
         next: 'FLAT_BHK',
     },
     FLAT_BHK: {
@@ -224,8 +239,13 @@ const OPTION_LABELS = {
     'pg_bud_4_5.5': '₹4L – ₹5.5L/yr', 'pg_bud_5.5_7': '₹5.5L – ₹7L/yr',
     'pg_bud_7_8.5': '₹7L – ₹8.5L/yr', 'pg_bud_8.5_10': '₹8.5L – ₹10L/yr',
     pg_bud_10p: '₹10L+/yr', pg_bud_15p: '₹15L+/yr (Single sharing)',
-    // Flat possession months
-    poss_apr: 'April', poss_may: 'May', poss_jun: 'June', poss_jul: 'July', poss_aug: 'August',
+    // PG timeline
+    tl_7d: 'Within 7 days', tl_1mo: 'Within 1 month', tl_later: 'After 1 month',
+    // Flat possession months (dynamic — label resolved via option title at runtime)
+    poss_jan: 'January', poss_feb: 'February', poss_mar: 'March',
+    poss_apr: 'April',   poss_may: 'May',       poss_jun: 'June',
+    poss_jul: 'July',    poss_aug: 'August',    poss_sep: 'September',
+    poss_oct: 'October', poss_nov: 'November',  poss_dec: 'December',
     // BHK
     bhk_1: '1 BHK', bhk_2: '2 BHK', bhk_3: '3 BHK', bhk_4: '4 BHK',
     // Flat budget — 1 BHK
@@ -442,6 +462,16 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     const d     = session.data;
     const stayType = d.stay_type || 'PG / Hostel';
 
+    const timeline   = d.timeline   || '';
+    const possession = d.possession || '';
+
+    // Hot lead: PG "Within 7 days" OR flat possession is current or next month
+    const now = new Date();
+    const thisMonth = now.toLocaleString('en-US', { month: 'long' });
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleString('en-US', { month: 'long' });
+    const isHotLead = timeline === 'Within 7 days' ||
+                      possession === thisMonth || possession === nextMonth;
+
     // Build lead data for Zoho
     const leadData = {
         property_type: stayType,
@@ -449,7 +479,8 @@ function buildLeadCompletion(userId, session, humanHandoff) {
         budget:        d.budget      || 'N/A',
         gender:        d.gender      || '',
         bhk:           d.bhk         || '',
-        possession:    d.possession  || '',
+        possession,
+        timeline:      timeline || possession, // use whichever is set
     };
 
     // Build search filters for inventory
@@ -468,7 +499,8 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     if (d.gender)     msg += `👤 Preference: *${d.gender}*\n`;
     if (d.bhk)        msg += `🏗️ BHK: *${d.bhk}*\n`;
     msg += `💰 Budget: *${d.budget || 'N/A'}*\n`;
-    if (d.possession) msg += `📅 Possession: *${d.possession}*\n`;
+    if (timeline)     msg += `📅 Move-in: *${timeline}*\n`;
+    if (possession)   msg += `📅 Possession: *${possession}*\n`;
 
     msg += `\n🔍 *Searching our inventory for the best matches...*`;
 
@@ -479,7 +511,7 @@ function buildLeadCompletion(userId, session, humanHandoff) {
         nextStep:      null,
         leadData,
         searchFilters,
-        isHotLead:     false,
+        isHotLead,
         humanHandoff,
     };
 }
