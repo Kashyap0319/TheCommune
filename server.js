@@ -372,8 +372,21 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                     logger.info(`[WhatsApp] Search request:`, searchFilters);
                     const allListings = await searchInventory(searchFilters);
                     const ranked = await rankListingsWithAI(searchFilters, allListings);
-                    const searchReply = formatSearchResults(ranked);
-                    await sendMessage(from, searchReply, phoneNumberId);
+
+                    if (!ranked || ranked.length === 0) {
+                        // No results — connect student to agent directly
+                        const agentPhone = assignAgent(searchFilters.area) || process.env.KANAK_PHONE_NUMBER;
+                        const agentNum   = (agentPhone || '').replace(/\D/g, '');
+                        const noResultMsg = `😔 *No listings found* for your requirements right now.\n\n` +
+                            `But don't worry — our agent will personally find the best options for you!\n\n` +
+                            `📞 Contact our agent directly:\n` +
+                            `👉 wa.me/${agentNum}\n\n` +
+                            `_Share your requirements and they'll get back to you within 30 minutes._`;
+                        await sendMessage(from, noResultMsg, phoneNumberId);
+                    } else {
+                        const searchReply = formatSearchResults(ranked);
+                        await sendMessage(from, searchReply, phoneNumberId);
+                    }
 
                     // Send photos only for AVAILABLE listings
                     const availableWithPhotos = ranked
