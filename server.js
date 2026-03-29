@@ -805,10 +805,23 @@ app.post('/zoho/notify', async (req, res) => {
     res.sendStatus(200); // respond immediately
 
     try {
-        const leads = req.body?.data || [];
-        for (const lead of Array.isArray(leads) ? leads : [leads]) {
+        const body = req.body || {};
+
+        // Handle all Zoho webhook formats
+        let leads;
+        if (body.leads) {
+            leads = Array.isArray(body.leads) ? body.leads : [body.leads];
+        } else if (body.data) {
+            leads = Array.isArray(body.data) ? body.data : [body.data];
+        } else if (body.Lead_Status) {
+            leads = [body]; // flat params at top level
+        } else {
+            leads = [];
+        }
+
+        for (const lead of leads) {
             if (!lead || !lead.Lead_Status) continue;
-            logger.info(`[Zoho Notify] Stage change — ${lead.Last_Name} → ${lead.Lead_Status}`);
+            logger.info(`[Zoho Notify] Stage change — ${lead.Last_Name || 'Unknown'} → ${lead.Lead_Status}`);
             await handleZohoStageChange(lead);
         }
     } catch (err) {
