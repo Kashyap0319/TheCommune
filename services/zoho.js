@@ -94,15 +94,19 @@ function assignAgentByArea(area) {
     return pick(process.env.AGENT_PHONE_OTHER) || process.env.KANAK_PHONE_NUMBER;
 }
 
-// Parse max budget number from strings like "₹8k-12k", "Under ₹8,000", "Above ₹25,000"
+// Parse max budget number from strings like "₹3L–₹3.5L/yr", "₹85K–₹1L/mo", "Above ₹25,000"
 function parseBudgetNumber(budgetStr) {
     if (!budgetStr) return null;
     const s = String(budgetStr).replace(/[₹,\s]/g, '').toLowerCase();
-    // Handle shorthand like 8k, 25k
-    const nums = s.match(/\d+(\.\d+)?k?/g) || [];
-    const values = nums.map(n => n.endsWith('k') ? parseFloat(n) * 1000 : parseFloat(n));
+    // Match numbers with optional k or l suffix
+    const nums = s.match(/\d+(\.\d+)?[kl]?/g) || [];
+    const values = nums.map(n => {
+        if (n.endsWith('l')) return parseFloat(n) * 100000;
+        if (n.endsWith('k')) return parseFloat(n) * 1000;
+        return parseFloat(n);
+    }).filter(v => v > 100); // ignore stray small numbers like "1" from "/yr"
     if (values.length === 0) return null;
-    return Math.max(...values); // use upper bound
+    return Math.max(...values);
 }
 
 async function createLead(leadData, phoneNumber) {
