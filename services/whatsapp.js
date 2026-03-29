@@ -55,7 +55,10 @@ async function sendTemplateMessage(to, templateName, phoneNumberId, bodyText = n
         if (bodyText) {
             template.components = [{
                 type: 'body',
-                parameters: [{ type: 'text', parameter_name: 'message', text: String(bodyText).slice(0, 900) }],
+                parameters: [
+                    { type: 'text', text: 'there' },                          // {{1}} name placeholder
+                    { type: 'text', text: String(bodyText).slice(0, 900) },   // {{2}} message
+                ],
             }];
         }
 
