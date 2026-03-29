@@ -179,6 +179,25 @@ const MESSAGES = {
         `*Refer a friend → Get ₹500 off your next month's rent!* 🎁\n\n` +
         `Just share their number with us and we'll take it from there.\n\n` +
         `— The Commūn`,
+
+    // Cold re-engagement — for leads who didn't convert
+    cold_7d: (l) =>
+        `Hi ${l.name || 'there'}! 👋 Still looking for a place in *${l.area || 'your area'}*?\n\n` +
+        `It's been a week — we may have fresh options matching your budget.\n\n` +
+        `Reply *OPTIONS* and we'll send the latest listings right away. 🏠\n\n` +
+        `— The Commūn`,
+
+    cold_14d: (l) =>
+        `Hey ${l.name || 'there'}! 🏠 Still searching after 2 weeks?\n\n` +
+        `We just got *new PG & flat listings* in *${l.area || 'your area'}* — some are going fast!\n\n` +
+        `Reply *YES* to get verified options in your budget right now.\n\n` +
+        `— The Commūn`,
+
+    cold_30d: (l) =>
+        `Hi ${l.name || 'there'}! One last check-in from The Commūn 🙏\n\n` +
+        `It's been 30 days since you reached out. Still hunting for a place — or know someone who is?\n\n` +
+        `Reply *HELP* and we'll personally assist you.\n\n` +
+        `— The Commūn`,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,8 +219,11 @@ function enqueueLeadFollowUps(phone, leadData) {
 
     const entries = [
         { phone, key: 'welcome',         sendAt: now + 5 * 60 * 1000, leadData, sent: false }, // 5 min
-        { phone, key: 'no_response_24h', sendAt: now + DAY,           leadData, sent: false },
-        { phone, key: 'still_cold_3d',   sendAt: now + 3 * DAY,       leadData, sent: false },
+        { phone, key: 'no_response_24h', sendAt: now + DAY,           leadData, sent: false }, // 1 day
+        { phone, key: 'still_cold_3d',   sendAt: now + 3 * DAY,       leadData, sent: false }, // 3 days
+        { phone, key: 'cold_7d',         sendAt: now + 7 * DAY,       leadData, sent: false }, // 7 days
+        { phone, key: 'cold_14d',        sendAt: now + 14 * DAY,      leadData, sent: false }, // 14 days
+        { phone, key: 'cold_30d',        sendAt: now + 30 * DAY,      leadData, sent: false }, // 30 days
     ];
 
     const queue    = loadQueue();
