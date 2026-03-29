@@ -27,8 +27,8 @@ const { sendMessage, sendImageMessage, sendButtonMessage, sendListMessage, getMe
 const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicReply } = require('./services/instagram');
 const { processChatMessage, formatSearchResults, rankListingsWithAI, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
 const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
-const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange } = require('./services/automation');
-const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow } = require('./services/google');
+const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange, getQueueStats, assignAgent } = require('./services/automation');
+const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows } = require('./services/google');
 
 const app = express();
 
@@ -426,18 +426,25 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                         }
                     }
 
-                    if (isHotLead && process.env.KANAK_PHONE_NUMBER && BROKER_WA_PHONE_NUMBER_ID) {
-                        const hotAlert = `🔥 *HOT LEAD ALERT*\n\nNew urgent enquiry from +${from}:\n` +
-                            `📍 Area: ${leadData.area}\n` +
-                            `🏠 Type: ${leadData.property_type}\n` +
-                            `💰 Budget: ${leadData.budget}\n` +
-                            `📅 Moving in: ${leadData.timeline}\n\n` +
-                            `_They need to move within 7 days — please follow up ASAP!_`;
-                        try {
-                            await sendMessage(process.env.KANAK_PHONE_NUMBER, hotAlert, BROKER_WA_PHONE_NUMBER_ID);
-                            logger.info(`🚨 Hot lead alert sent to Kanak for ${from}`);
-                        } catch (alertErr) {
-                            logger.error('[WhatsApp] Failed to process hot lead alert:', alertErr.message);
+                    // Notify assigned agent for every new lead
+                    if (BROKER_WA_PHONE_NUMBER_ID) {
+                        const assignedAgent = assignAgent(leadData.area);
+                        const agentPhone = assignedAgent || process.env.KANAK_PHONE_NUMBER;
+                        if (agentPhone) {
+                            const urgency = isHotLead ? '🔥 *HOT LEAD* — ' : '';
+                            const agentAlert = `${urgency}*New Lead Assigned*\n\n` +
+                                `📱 Phone: +${from}\n` +
+                                `📍 Area: ${leadData.area || 'N/A'}\n` +
+                                `🏠 Type: ${leadData.property_type || 'N/A'}\n` +
+                                `💰 Budget: ${leadData.budget || 'N/A'}\n` +
+                                `📅 Moving in: ${leadData.timeline || 'N/A'}\n` +
+                                (isHotLead ? `\n_Urgent — follow up ASAP!_` : `\n_Please reach out within 24 hours._`);
+                            try {
+                                await sendMessage(agentPhone, agentAlert, BROKER_WA_PHONE_NUMBER_ID);
+                                logger.info(`[Agent Notify] Alert sent to ${agentPhone} for lead +${from}`);
+                            } catch (alertErr) {
+                                logger.error('[Agent Notify] Failed:', alertErr.message);
+                            }
                         }
                     }
                 }
@@ -823,6 +830,11 @@ app.post('/zoho/notify', async (req, res) => {
             if (!lead || !lead.Lead_Status) continue;
             logger.info(`[Zoho Notify] Stage change — ${lead.Last_Name || 'Unknown'} → ${lead.Lead_Status}`);
             await handleZohoStageChange(lead);
+
+            // A5: Auto-create Google Calendar event when lead moves to Visit Scheduled
+            if (lead.Lead_Status?.toLowerCase() === 'visit scheduled') {
+                createCalendarEvent(lead).catch(e => logger.error('[Calendar] Event creation failed:', e.message));
+            }
         }
     } catch (err) {
         logger.error('[Zoho Notify] Error:', err.message);
@@ -890,6 +902,71 @@ app.get('/api/zoho-leads', async (req, res) => {
     } catch (err) {
         logger.error('[Admin] zoho-leads error:', err.response?.data || err.message);
         res.status(500).json({ error: 'Failed to fetch leads from Zoho' });
+    }
+});
+
+// ----------------------------------------------------
+// ADMIN DASHBOARD STATS (A6)
+// GET /api/stats — live numbers for admin panel
+// ----------------------------------------------------
+app.get('/api/stats', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const axios = require('axios');
+
+        // 1. Zoho lead counts
+        const tokenRes = await axios.post('https://accounts.zoho.in/oauth/v2/token', null, {
+            params: {
+                refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+                client_id:     process.env.ZOHO_CLIENT_ID,
+                client_secret: process.env.ZOHO_CLIENT_SECRET,
+                grant_type:    'refresh_token',
+            },
+        });
+        const token = tokenRes.data.access_token;
+        const headers = { Authorization: `Zoho-oauthtoken ${token}` };
+
+        const [allLeadsRes, hotLeadsRes, visitLeadsRes] = await Promise.all([
+            axios.get('https://www.zohoapis.in/crm/v3/Leads', {
+                params: { per_page: 1, fields: 'id' }, headers,
+            }),
+            axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
+                params: { criteria: '(Hot_Lead:equals:true)', per_page: 1, fields: 'id' }, headers,
+            }).catch(() => ({ data: { info: { count: 0 } } })),
+            axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
+                params: { criteria: '(Lead_Status:equals:Visit Scheduled)', per_page: 1, fields: 'id' }, headers,
+            }).catch(() => ({ data: { info: { count: 0 } } })),
+        ]);
+
+        const totalLeads   = allLeadsRes.data?.info?.count   || 0;
+        const hotLeads     = hotLeadsRes.data?.info?.count   || 0;
+        const visitLeads   = visitLeadsRes.data?.info?.count || 0;
+
+        // 2. Inventory counts from Google Sheets
+        let availableListings = 0, closedListings = 0;
+        try {
+            const rows = await getSheetRows();
+            for (let i = 1; i < rows.length; i++) {
+                const status = (rows[i][1] || '').toUpperCase();
+                if (status === 'CLOSED') closedListings++;
+                else availableListings++;
+            }
+        } catch (_) { /* sheet unavailable */ }
+
+        // 3. Follow-up queue stats
+        const queueStats = getQueueStats();
+
+        res.json({
+            leads:     { total: totalLeads, hot: hotLeads, visitScheduled: visitLeads },
+            inventory: { available: availableListings, closed: closedListings },
+            queue:     queueStats,
+        });
+    } catch (err) {
+        logger.error('[Stats] Error:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
 

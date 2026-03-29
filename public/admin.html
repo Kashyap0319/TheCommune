@@ -129,6 +129,15 @@
         .result-ok  { background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 14px; color: #276749; font-size: 14px; }
         .result-err { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 14px; color: #c53030; font-size: 14px; }
 
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
+        .stat-box { background: #f7f9fc; border-radius: 10px; padding: 16px 12px; text-align: center; }
+        .stat-box .num { font-size: 28px; font-weight: 700; color: #1a1a2e; line-height: 1; }
+        .stat-box .lbl { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .stat-box.hot .num { color: #e53e3e; }
+        .stat-box.green .num { color: #276749; }
+        #stats-refresh { background: none; border: none; font-size: 13px; color: #888; cursor: pointer; text-decoration: underline; margin-top: 8px; }
+
         /* TIPS */
         .tips { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 8px; padding: 14px; font-size: 13px; color: #744210; line-height: 1.7; }
         .tips strong { display: block; margin-bottom: 4px; }
@@ -155,6 +164,23 @@
 
     <!-- MAIN PANEL -->
     <div id="panel">
+
+        <!-- STATS DASHBOARD -->
+        <div class="card">
+            <h2>📊 Dashboard Stats</h2>
+            <p class="subtitle">Live snapshot from Zoho CRM &amp; inventory</p>
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-box"><div class="num" id="s-total">—</div><div class="lbl">Total Leads</div></div>
+                <div class="stat-box hot"><div class="num" id="s-hot">—</div><div class="lbl">Hot Leads</div></div>
+                <div class="stat-box"><div class="num" id="s-visit">—</div><div class="lbl">Visit Scheduled</div></div>
+                <div class="stat-box green"><div class="num" id="s-avail">—</div><div class="lbl">Available Listings</div></div>
+                <div class="stat-box"><div class="num" id="s-closed">—</div><div class="lbl">Closed Listings</div></div>
+                <div class="stat-box"><div class="num" id="s-queue">—</div><div class="lbl">Pending Follow-ups</div></div>
+            </div>
+            <div style="text-align:right">
+                <button id="stats-refresh">↻ Refresh</button>
+            </div>
+        </div>
 
         <!-- BULK MESSAGE -->
         <div class="card">
@@ -267,6 +293,26 @@
     function showPanel() {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('panel').style.display = 'block';
+        loadStats();
+    }
+
+    async function loadStats() {
+        const apiKey = sessionStorage.getItem(SESSION_KEY);
+        try {
+            const res  = await fetch('/api/stats', { headers: { 'X-API-Key': apiKey } });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed');
+            document.getElementById('s-total').textContent  = data.leads.total;
+            document.getElementById('s-hot').textContent    = data.leads.hot;
+            document.getElementById('s-visit').textContent  = data.leads.visitScheduled;
+            document.getElementById('s-avail').textContent  = data.inventory.available;
+            document.getElementById('s-closed').textContent = data.inventory.closed;
+            document.getElementById('s-queue').textContent  = data.queue.pending;
+        } catch (err) {
+            ['s-total','s-hot','s-visit','s-avail','s-closed','s-queue'].forEach(id => {
+                document.getElementById(id).textContent = '!';
+            });
+        }
     }
 
     // Auto-login if session exists
@@ -371,6 +417,7 @@
     // ── WIRE UP BUTTONS ────────────────────────────────────
     document.getElementById('send-btn').addEventListener('click', sendBulk);
     document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('stats-refresh').addEventListener('click', loadStats);
 
     // ── LOAD FROM ZOHO ─────────────────────────────────────
     document.getElementById('load-all-btn').addEventListener('click', async function() {

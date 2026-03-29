@@ -28,7 +28,11 @@ const serviceAuth = new google.auth.GoogleAuth({
         client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
         private_key: privateKey,
     },
-    scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'],
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/calendar',
+    ],
 });
 
 // ── OAuth2 auth (for Drive uploads — uses Kanak's storage quota) ──
@@ -372,6 +376,55 @@ async function addMediaLinkToRow(listingId, driveLink, mimeType = '') {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GOOGLE CALENDAR — create visit event when lead moves to "Visit Scheduled"
+// Share Kanak's calendar with thecommun-bot@thecommun.iam.gserviceaccount.com
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function createCalendarEvent(lead) {
+    try {
+        const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+        const auth = await serviceAuth.getClient();
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        // Visit time: tomorrow 11am IST unless visit_date is specified
+        const visitDate = lead.visit_date ? new Date(lead.visit_date) : (() => {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            d.setHours(11, 0, 0, 0);
+            return d;
+        })();
+
+        const endDate = new Date(visitDate.getTime() + 60 * 60 * 1000); // +1 hour
+
+        const name   = lead.Last_Name || lead.name || 'Student';
+        const area   = lead.Area      || lead.area || 'N/A';
+        const phone  = lead.Phone     || lead.phone || 'N/A';
+        const budget = lead.Budget    || lead.budget || 'N/A';
+
+        const event = {
+            summary:     `PG Visit — ${name} — ${area}`,
+            description: `Student: ${name}\nPhone: ${phone}\nArea: ${area}\nBudget: ${budget}\n\nAuto-created by TheCommun bot`,
+            start: { dateTime: visitDate.toISOString(), timeZone: 'Asia/Kolkata' },
+            end:   { dateTime: endDate.toISOString(),   timeZone: 'Asia/Kolkata' },
+            reminders: {
+                useDefault: false,
+                overrides: [
+                    { method: 'popup', minutes: 60 },
+                    { method: 'popup', minutes: 15 },
+                ],
+            },
+        };
+
+        const response = await calendar.events.insert({ calendarId, requestBody: event });
+        logger.info(`[Calendar] Event created: ${response.data.htmlLink}`);
+        return response.data;
+    } catch (error) {
+        logger.error('[Calendar] Failed to create event:', error.message);
+        throw error;
+    }
+}
+
 module.exports = {
     oauth2Client,
     uploadToDrive,
@@ -380,4 +433,6 @@ module.exports = {
     closeListingById,
     addMediaLinkToRow,
     findRowByListingId,
+    createCalendarEvent,
+    getSheetRows,
 };

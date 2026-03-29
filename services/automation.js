@@ -11,8 +11,10 @@ const path  = require('path');
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const QUEUE_FILE = path.join(__dirname, '../data/followup-queue.json');
-const RR_FILE    = path.join(__dirname, '../data/rr-counter.json');
+const DATA_DIR   = process.env.DATA_DIR || path.join(__dirname, '../data');
+const QUEUE_FILE = path.join(DATA_DIR, 'followup-queue.json');
+const RR_FILE    = path.join(DATA_DIR, 'rr-counter.json');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // every hour
 
 let _sendMessage;
@@ -583,10 +585,18 @@ function startAutomation() {
     logger.info('[Automation] Module D started ✅');
 }
 
+function getQueueStats() {
+    const queue = loadQueue();
+    const pending = queue.filter(e => !e.sent).length;
+    const sent    = queue.filter(e => e.sent).length;
+    return { total: queue.length, pending, sent };
+}
+
 module.exports = {
     startAutomation,
     enqueueLeadFollowUps,
     sendBulkMessage,
     handleZohoStageChange,
     assignAgent,
+    getQueueStats,
 };
