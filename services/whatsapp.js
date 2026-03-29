@@ -43,7 +43,7 @@ async function sendMessage(to, text, phoneNumberId) {
  * @param {string} language - The language code (e.g., 'en_US')
  */
 // Send approved template with optional body variable ({{message}} named param)
-async function sendTemplateMessage(to, templateName, phoneNumberId, bodyText = null, language = 'en') {
+async function sendTemplateMessage(to, templateName, phoneNumberId, bodyText = null, language = 'en_US') {
     try {
         const url = `https://graph.facebook.com/${WA_API_VERSION}/${phoneNumberId}/messages`;
 
