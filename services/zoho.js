@@ -9,27 +9,33 @@ const ZOHO_TIMEOUT_MS = 15000;
 
 let currentAccessToken = null;
 
-async function refreshZohoToken() {
-    try {
-        const response = await axios.post(ZOHO_AUTH_URL, null, {
-            params: {
-                refresh_token: ZOHO_REFRESH_TOKEN,
-                client_id: ZOHO_CLIENT_ID,
-                client_secret: ZOHO_CLIENT_SECRET,
-                grant_type: 'refresh_token',
-            },
-            timeout: ZOHO_TIMEOUT_MS,
-        });
+async function refreshZohoToken(retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await axios.post(ZOHO_AUTH_URL, null, {
+                params: {
+                    refresh_token: ZOHO_REFRESH_TOKEN,
+                    client_id: ZOHO_CLIENT_ID,
+                    client_secret: ZOHO_CLIENT_SECRET,
+                    grant_type: 'refresh_token',
+                },
+                timeout: ZOHO_TIMEOUT_MS,
+            });
 
-        if (response.data.access_token) {
-            currentAccessToken = response.data.access_token;
-            logger.info('[Zoho] Access token refreshed');
-        } else {
+            if (response.data.access_token) {
+                currentAccessToken = response.data.access_token;
+                logger.info('[Zoho] Access token refreshed');
+                return;
+            }
             throw new Error('No access_token in Zoho response');
+        } catch (error) {
+            logger.error(`[Zoho] Token refresh attempt ${attempt}/${retries} failed:`, error.response?.data || error.message);
+            if (attempt < retries) {
+                await new Promise(r => setTimeout(r, 1000 * attempt)); // 1s, 2s backoff
+            } else {
+                throw error;
+            }
         }
-    } catch (error) {
-        logger.error('[Zoho] Token refresh failed:', error.response?.data || error.message);
-        throw error;
     }
 }
 

@@ -337,11 +337,14 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                 if (isText || isInteractive) {
                     const msg_body = isText ? message.text?.body : null;
 
-                    // Auto-save number to Zoho on first contact (even before flow completes)
+                    // Lookup once — reused for auto-save + flow completion (avoids duplicate API call)
+                    let cachedZohoLead = null;
                     try {
-                        const existing = await searchLeadByPhone(from);
-                        if (!existing) {
-                            await createLead({ source: 'WhatsApp Chatbot', area: '', budget: '', property_type: '' }, from);
+                        cachedZohoLead = await searchLeadByPhone(from);
+                        if (!cachedZohoLead) {
+                            const created = await createLead({ source: 'WhatsApp Chatbot', area: '', budget: '', property_type: '' }, from);
+                            const createdId = created?.data?.[0]?.details?.id;
+                            if (createdId) cachedZohoLead = { id: createdId };
                             logger.info(`[WhatsApp] New contact auto-saved to Zoho: ${from}`);
                         }
                     } catch (e) {
@@ -384,6 +387,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                                 : `Photo ${pi + 1}/${listing.photoLinks.length}`;
                             try {
                                 await sendImageMessage(from, listing.photoLinks[pi], caption, phoneNumberId);
+                                await new Promise(r => setTimeout(r, 600)); // avoid Meta rate limit
                             } catch (imgErr) {
                                 logger.error(`[WhatsApp] Photo send failed for ${listing.listingId}:`, imgErr.message);
                             }
@@ -392,11 +396,10 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                 }
 
                 if (leadData) {
-                    const existingLead = await searchLeadByPhone(from);
                     let zohoResult;
-                    if (existingLead?.id) {
-                        zohoResult = await updateLead(existingLead.id, leadData);
-                        logger.info(`[WhatsApp] Lead updated in Zoho: ${existingLead.id}. Hot lead: ${isHotLead}`);
+                    if (cachedZohoLead?.id) {
+                        zohoResult = await updateLead(cachedZohoLead.id, leadData);
+                        logger.info(`[WhatsApp] Lead updated in Zoho: ${cachedZohoLead.id}. Hot lead: ${isHotLead}`);
                     } else {
                         zohoResult = await createLead(leadData, from);
                         logger.info(`[WhatsApp] Lead created in Zoho. Hot lead: ${isHotLead}`);
@@ -406,7 +409,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                     // Human handoff → add note on lead in Zoho CRM
                     if (humanHandoff) {
                         try {
-                            const leadId = existingLead?.id || zohoResult?.data?.[0]?.details?.id;
+                            const leadId = cachedZohoLead?.id || zohoResult?.data?.[0]?.details?.id;
                             if (leadId) {
                                 await createNote(leadId,
                                     '👤 Human Handoff Requested',

@@ -488,6 +488,15 @@ function buildLeadCompletion(userId, session, humanHandoff) {
 // SEARCH INTENT DETECTION (free text search, e.g. "show me 2bhk in andheri")
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Sanitize user text before putting in prompts — strip injection attempts
+function sanitizeForPrompt(text, maxLen = 300) {
+    return String(text || '')
+        .slice(0, maxLen)
+        .replace(/[`"\\]/g, ' ')
+        .replace(/\[.*?\]/g, '')
+        .trim();
+}
+
 async function detectSearchIntent(text) {
     const lower = text.toLowerCase();
     const searchKeywords = ['show', 'available', 'flat', 'pg', 'room', 'bhk', 'search', 'find', 'looking for', 'any', 'options', 'list'];
@@ -511,8 +520,9 @@ async function detectSearchIntent(text) {
             },
         });
 
+        const safeText = sanitizeForPrompt(text);
         const result = await model.generateContent(
-            `Is this a property search query? Extract area, max_budget (number in rupees), bhk if present. Text: "${text}"`
+            `Is this a property search query? Extract area, max_budget (number in rupees), bhk if present. Text: ${safeText}`
         );
         const parsed = JSON.parse(result.response.text());
 
@@ -672,7 +682,7 @@ async function parsePropertyListing(text) {
             `- "building_name": building/society name if mentioned.\n` +
             `- "extra_notes": anything that doesn't fit above fields.\n\n` +
             `Fields: property_type, furnishing, location, building_name, nearby_landmark, rent_min, rent_max, security_deposit, possession_date, floor, amenities, extra_notes\n\n` +
-            `Broker message:\n"${text}"\n\n` +
+            `Broker message:\n${sanitizeForPrompt(text, 1000)}\n\n` +
             `Return only JSON, no explanation.`
         );
         const raw = result.response.text().trim().replace(/^```json[\s\S]*?```$|^```[\s\S]*?```$/gm, s => s.replace(/^```json\n?|^```\n?|\n?```$/g, '')).trim();

@@ -151,12 +151,38 @@ async function appendToInventorySheet(listingId, propertyData, mediaLinks, sende
             resource: { values: [row] },
         });
 
+        invalidateSheetCache();
         logger.info(`Added listing ${listingId} to Google Sheet:`, response.data.updates.updatedRange);
         return response.data;
     } catch (error) {
         logger.error('Error appending to Google Sheet:', error);
         throw error;
     }
+}
+
+// In-memory sheet cache — 5 min TTL to avoid hammering Google Sheets API
+let _sheetCache = null;
+let _sheetCacheTime = 0;
+const SHEET_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getSheetRows() {
+    const now = Date.now();
+    if (_sheetCache && (now - _sheetCacheTime) < SHEET_CACHE_TTL_MS) {
+        return _sheetCache;
+    }
+    const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: GOOGLE_SHEET_ID,
+        range: 'Sheet1!A:Q',
+    });
+    _sheetCache = response.data.values || [];
+    _sheetCacheTime = now;
+    return _sheetCache;
+}
+
+// Call this after any write to sheet so cache is invalidated immediately
+function invalidateSheetCache() {
+    _sheetCache = null;
+    _sheetCacheTime = 0;
 }
 
 // Extract raw URL from a HYPERLINK formula or plain text
@@ -174,12 +200,7 @@ function extractUrl(cell) {
  */
 async function searchInventory(filters) {
     try {
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A:Q',
-        });
-
-        const rows = response.data.values;
+        const rows = await getSheetRows();
         if (!rows || rows.length <= 1) return [];
 
         const results = [];
@@ -294,6 +315,7 @@ async function closeListingById(listingId) {
             resource: { values: [['CLOSED']] },
         });
 
+        invalidateSheetCache();
         logger.info(`[Close] Listing ${listingId} (row ${rowIndex}) marked as CLOSED.`);
         return {
             success: true,

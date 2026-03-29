@@ -21,6 +21,14 @@ function getSendMessage() {
     return _sendMessage;
 }
 
+let _sendTemplate;
+function getSendTemplate() {
+    if (!_sendTemplate) _sendTemplate = require('./whatsapp').sendTemplateMessage;
+    return _sendTemplate;
+}
+
+const BROADCAST_TEMPLATE = process.env.WA_BROADCAST_TEMPLATE || 'broadcasting';
+
 const STUDENT_PHONE_ID = () => process.env.STUDENT_WA_PHONE_NUMBER_ID;
 const BROKER_PHONE_ID  = () => process.env.BROKER_WA_PHONE_NUMBER_ID;
 const KANAK_PHONE      = () => process.env.KANAK_PHONE_NUMBER;
@@ -219,9 +227,8 @@ async function handleZohoStageChange(leadRecord) {
         budget: leadRecord.Budget    || '',
     };
 
-    const DAY          = 24 * 60 * 60 * 1000;
-    const sendMessage  = getSendMessage();
-    const queue        = loadQueue();
+    const DAY   = 24 * 60 * 60 * 1000;
+    const queue = loadQueue();
 
     if (stage === 'visit scheduled') {
         queue.push({ phone: cleanPhone, key: 'visit_reminder', sendAt: Date.now() + DAY, leadData: lead, sent: false });
@@ -237,7 +244,7 @@ async function handleZohoStageChange(leadRecord) {
 
     else if (stage === 'deal closed') {
         try {
-            await sendMessage(cleanPhone, MESSAGES.deal_closed(lead), STUDENT_PHONE_ID());
+            await getSendTemplate()(cleanPhone, BROADCAST_TEMPLATE, STUDENT_PHONE_ID(), MESSAGES.deal_closed(lead));
             logger.info(`[Automation] Move-in checklist sent to ${cleanPhone}`);
         } catch (err) {
             logger.error(`[Automation] Deal closed msg failed for ${cleanPhone}:`, err.message);
@@ -270,7 +277,7 @@ async function processDueFollowUps() {
         if (!message) { entry.sent = true; changed = true; continue; }
 
         try {
-            await getSendMessage()(entry.phone, message, STUDENT_PHONE_ID());
+            await getSendTemplate()(entry.phone, BROADCAST_TEMPLATE, STUDENT_PHONE_ID(), message);
             logger.info(`[Automation] Sent '${entry.key}' to ${entry.phone}`);
             entry.sent = true;
             changed    = true;
@@ -292,7 +299,7 @@ async function processDueFollowUps() {
 async function sendBulkMessage(phones, message, delayMs = 1500) {
     if (!phones || phones.length === 0) return { sent: 0, failed: 0, errors: [] };
 
-    const sendMessage = getSendMessage();
+    const sendTemplate = getSendTemplate();
     let sent = 0, failed = 0;
     const errors = [];
 
@@ -300,7 +307,7 @@ async function sendBulkMessage(phones, message, delayMs = 1500) {
         const p = String(phone).replace(/\D/g, '');
         if (!p) continue;
         try {
-            await sendMessage(p, message, STUDENT_PHONE_ID());
+            await sendTemplate(p, BROADCAST_TEMPLATE, STUDENT_PHONE_ID(), message);
             sent++;
         } catch (err) {
             failed++;
