@@ -388,6 +388,16 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                         await sendMessage(from, searchReply, phoneNumberId);
                     }
 
+                    // Convert Google Drive view URLs to direct image URLs for WhatsApp
+                    function driveDirectUrl(url) {
+                        if (!url) return url;
+                        const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+                        if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+                        const m2 = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                        if (m2) return `https://drive.google.com/uc?export=view&id=${m2[1]}`;
+                        return url;
+                    }
+
                     // Send photos only for AVAILABLE listings
                     const availableWithPhotos = ranked
                         .filter(r => r.status === 'AVAILABLE' && r.photoLinks?.length > 0)
@@ -399,7 +409,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                                 ? `📸 *${[listing.bhk, listing.area].filter(Boolean).join(' — ')}*${listing.rent ? ' | ₹' + listing.rent + '/mo' : ''} (${pi + 1}/${listing.photoLinks.length})`
                                 : `Photo ${pi + 1}/${listing.photoLinks.length}`;
                             try {
-                                await sendImageMessage(from, listing.photoLinks[pi], caption, phoneNumberId);
+                                await sendImageMessage(from, driveDirectUrl(listing.photoLinks[pi]), caption, phoneNumberId);
                                 await new Promise(r => setTimeout(r, 600)); // avoid Meta rate limit
                             } catch (imgErr) {
                                 logger.error(`[WhatsApp] Photo send failed for ${listing.listingId}:`, imgErr.message);
