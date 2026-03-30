@@ -177,6 +177,7 @@ async function getSheetRows() {
     const response = await sheets.spreadsheets.values.get({
         spreadsheetId: GOOGLE_SHEET_ID,
         range: 'Sheet1!A:Q',
+        valueRenderOption: 'FORMULA',
     });
     _sheetCache = response.data.values || [];
     _sheetCacheTime = now;
@@ -226,19 +227,24 @@ async function searchInventory(filters) {
 
             const isAvailable = !status || status.toUpperCase() === 'AVAILABLE';
 
-            // Area filter — loose match + road-level matching
+            // Area filter — split multi-area filters (e.g. "Vile Parle / Juhu / Andheri West")
             if (filters.area && area) {
-                const nf = filters.area.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const na = area.toLowerCase().replace(/[^a-z0-9]/g, '');
-                let areaMatch = na.includes(nf) || nf.includes(na);
+                const areaLower = area.toLowerCase();
+                const na = areaLower.replace(/[^a-z0-9]/g, '');
+                const filterParts = filters.area.toLowerCase().split(/[/,]/).map(s => s.trim()).filter(Boolean);
 
-                // Road-level matching: check if listing area mentions a road in the selected sub-area
-                if (!areaMatch) {
-                    const roads = AREA_ROADS[filters.area.toLowerCase()];
-                    if (roads) {
-                        const areaLower = area.toLowerCase();
-                        areaMatch = roads.some(road => areaLower.includes(road));
+                let areaMatch = false;
+                for (const part of filterParts) {
+                    const nf = part.replace(/[^a-z0-9]/g, '');
+                    if (na.includes(nf) || nf.includes(na)) { areaMatch = true; break; }
+
+                    // Road-level matching: check all AREA_ROADS whose key contains this part
+                    for (const [areaKey, roads] of Object.entries(AREA_ROADS)) {
+                        if (areaKey.includes(part.trim())) {
+                            if (roads.some(road => areaLower.includes(road))) { areaMatch = true; break; }
+                        }
                     }
+                    if (areaMatch) break;
                 }
                 if (!areaMatch) continue;
             }

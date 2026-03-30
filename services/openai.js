@@ -84,23 +84,8 @@ const FLOW_STEPS = {
         ],
         nextMap: {
             stay_hostel: 'PG_GENDER',
-            stay_flat:   'FLAT_SUB_AREA',
+            stay_flat:   'FLAT_POSSESSION',
         },
-    },
-
-    // ── FLAT SUB-AREA (VP West, VP East, Juhu, Andheri W) ──
-    FLAT_SUB_AREA: {
-        key: 'sub_area',
-        question: '📍 Which specific area are you looking in?',
-        inputType: 'list',
-        buttonLabel: 'Choose Area',
-        options: [
-            { id: 'sub_vpw',  title: 'Vile Parle West',  description: 'SV Road, Irla, Juhu Lane & more' },
-            { id: 'sub_vpe',  title: 'Vile Parle East',  description: 'Nehru Rd, Sahar Rd, WEH & more' },
-            { id: 'sub_juhu', title: 'Juhu',              description: 'Juhu Tara Rd, JVPD & more' },
-            { id: 'sub_andw', title: 'Andheri West',      description: 'Link Road, SV Road & more' },
-        ],
-        next: 'FLAT_POSSESSION',
     },
 
     // ── PG / HOSTEL FLOW (only 2 questions) ──
@@ -171,12 +156,14 @@ const FLOW_STEPS = {
         inputType: 'list',
         buttonLabel: 'Choose BHK',
         options: [
-            { id: 'bhk_1', title: '1 BHK' },
-            { id: 'bhk_2', title: '2 BHK' },
-            { id: 'bhk_3', title: '3 BHK' },
-            { id: 'bhk_4', title: '4 BHK' },
+            { id: 'bhk_1',   title: '1 BHK' },
+            { id: 'bhk_2',   title: '2 BHK' },
+            { id: 'bhk_3',   title: '3 BHK' },
+            { id: 'bhk_4',   title: '4 BHK' },
+            { id: 'bhk_2_3', title: '2 & 3 BHK',  description: 'Show both 2 BHK & 3 BHK' },
+            { id: 'bhk_3_4', title: '3 & 4 BHK',  description: 'Show both 3 BHK & 4 BHK' },
+            { id: 'bhk_any', title: 'Any BHK',     description: 'Show all available flats' },
         ],
-        // Custom routing in processChoice → dynamic budget based on BHK
         next: '_CUSTOM_BHK_ROUTE',
     },
 
@@ -184,11 +171,13 @@ const FLOW_STEPS = {
     FLAT_BUDGET_1BHK: {
         key: 'budget',
         question: '💰 Monthly budget for 1 BHK?',
-        inputType: 'button',
+        inputType: 'list',
+        buttonLabel: 'Choose Budget',
         options: [
             { id: 'fl1_75_85',  title: '₹75K – ₹85K' },
             { id: 'fl1_85_100', title: '₹85K – ₹1 Lakh' },
             { id: 'fl1_100p',   title: '₹1 Lakh+' },
+            { id: 'fl_any',     title: 'Any budget', description: 'Show all price ranges' },
         ],
         next: 'DONE',
     },
@@ -202,6 +191,7 @@ const FLOW_STEPS = {
             { id: 'fl2_110_125', title: '₹1.10L – ₹1.25 Lakh' },
             { id: 'fl2_125_140', title: '₹1.25L – ₹1.40 Lakh' },
             { id: 'fl2_140p',    title: '₹1.40 Lakh+' },
+            { id: 'fl_any',      title: 'Any budget', description: 'Show all price ranges' },
         ],
         next: 'DONE',
     },
@@ -215,6 +205,7 @@ const FLOW_STEPS = {
             { id: 'fl3_160_180', title: '₹1.60L – ₹1.80 Lakh' },
             { id: 'fl3_180_200', title: '₹1.80L – ₹2.00 Lakh' },
             { id: 'fl3_200p',    title: '₹2 Lakh+' },
+            { id: 'fl_any',      title: 'Any budget', description: 'Show all price ranges' },
         ],
         next: 'DONE',
     },
@@ -228,6 +219,48 @@ const FLOW_STEPS = {
             { id: 'fl4_220_250', title: '₹2.20L – ₹2.50 Lakh' },
             { id: 'fl4_250_300', title: '₹2.50L – ₹3.00 Lakh' },
             { id: 'fl4_300p',    title: '₹3 Lakh+' },
+            { id: 'fl_any',      title: 'Any budget', description: 'Show all price ranges' },
+        ],
+        next: 'DONE',
+    },
+    // ── COMBINED BHK BUDGETS ──
+    FLAT_BUDGET_2_3BHK: {
+        key: 'budget',
+        question: '💰 Monthly budget for 2 & 3 BHK?',
+        inputType: 'list',
+        buttonLabel: 'Choose Budget',
+        options: [
+            { id: 'fl23_95_140',  title: '₹95K – ₹1.40 Lakh' },
+            { id: 'fl23_140_200', title: '₹1.40L – ₹2 Lakh' },
+            { id: 'fl23_200p',    title: '₹2 Lakh+' },
+            { id: 'fl_any',       title: 'Any budget', description: 'Show all price ranges' },
+        ],
+        next: 'DONE',
+    },
+    FLAT_BUDGET_3_4BHK: {
+        key: 'budget',
+        question: '💰 Monthly budget for 3 & 4 BHK?',
+        inputType: 'list',
+        buttonLabel: 'Choose Budget',
+        options: [
+            { id: 'fl34_140_200', title: '₹1.40L – ₹2 Lakh' },
+            { id: 'fl34_200_300', title: '₹2L – ₹3 Lakh' },
+            { id: 'fl34_300p',    title: '₹3 Lakh+' },
+            { id: 'fl_any',       title: 'Any budget', description: 'Show all price ranges' },
+        ],
+        next: 'DONE',
+    },
+    FLAT_BUDGET_ANY: {
+        key: 'budget',
+        question: '💰 Monthly budget?',
+        inputType: 'list',
+        buttonLabel: 'Choose Budget',
+        options: [
+            { id: 'fla_u100',    title: 'Under ₹1 Lakh' },
+            { id: 'fla_100_200', title: '₹1L – ₹2 Lakh' },
+            { id: 'fla_200_300', title: '₹2L – ₹3 Lakh' },
+            { id: 'fla_300p',    title: '₹3 Lakh+' },
+            { id: 'fl_any',      title: 'Any budget', description: 'Show all price ranges' },
         ],
         next: 'DONE',
     },
@@ -246,9 +279,6 @@ const OPTION_LABELS = {
     area_south: 'Fort / Mahalaxmi (South Bombay)', area_navi: 'Kharghar (Navi Mumbai)',
     // Stay type
     stay_hostel: 'PG / Hostel', stay_flat: 'Flat / Serviced Flat',
-    // Sub-areas (flats)
-    sub_vpw: 'Vile Parle West', sub_vpe: 'Vile Parle East',
-    sub_juhu: 'Juhu', sub_andw: 'Andheri West',
     // Gender
     gender_girls: 'Only Girls', gender_boys: 'Only Boys',
     gender_coed_open: 'Co-ed (No restrictions)', gender_coed_sep: 'Co-ed (Separate wings)',
@@ -266,6 +296,7 @@ const OPTION_LABELS = {
     poss_oct: 'October', poss_nov: 'November',  poss_dec: 'December',
     // BHK
     bhk_1: '1 BHK', bhk_2: '2 BHK', bhk_3: '3 BHK', bhk_4: '4 BHK',
+    bhk_2_3: '2 & 3 BHK', bhk_3_4: '3 & 4 BHK', bhk_any: 'Any BHK',
     // Flat budget — 1 BHK
     fl1_75_85: '₹75K – ₹85K/mo', fl1_85_100: '₹85K – ₹1L/mo', fl1_100p: '₹1L+/mo',
     // Flat budget — 2 BHK
@@ -277,6 +308,11 @@ const OPTION_LABELS = {
     // Flat budget — 4 BHK
     fl4_180_200: '₹1.80L – ₹2L/mo', fl4_220_250: '₹2.20L – ₹2.50L/mo',
     fl4_250_300: '₹2.50L – ₹3L/mo', fl4_300p: '₹3L+/mo',
+    // Flat budget — combined
+    fl23_95_140: '₹95K – ₹1.40L/mo', fl23_140_200: '₹1.40L – ₹2L/mo', fl23_200p: '₹2L+/mo',
+    fl34_140_200: '₹1.40L – ₹2L/mo', fl34_200_300: '₹2L – ₹3L/mo', fl34_300p: '₹3L+/mo',
+    fla_u100: 'Under ₹1L/mo', fla_100_200: '₹1L – ₹2L/mo', fla_200_300: '₹2L – ₹3L/mo', fla_300p: '₹3L+/mo',
+    fl_any: 'Any budget',
 };
 
 // Budget option ID → { min, max } numeric range for inventory search
@@ -311,14 +347,29 @@ const BUDGET_RANGE = {
     fl4_220_250: { min: 220000, max: 300000 },
     fl4_250_300: { min: 250000, max: 999999 },
     fl4_300p:    { min: 300000, max: 999999 },
+    // Flat combined BHK
+    fl23_95_140:  { min: 95000,  max: 140000 },
+    fl23_140_200: { min: 140000, max: 200000 },
+    fl23_200p:    { min: 200000, max: 999999 },
+    fl34_140_200: { min: 140000, max: 200000 },
+    fl34_200_300: { min: 200000, max: 300000 },
+    fl34_300p:    { min: 300000, max: 999999 },
+    fla_u100:     { min: 0,      max: 100000 },
+    fla_100_200:  { min: 100000, max: 200000 },
+    fla_200_300:  { min: 200000, max: 300000 },
+    fla_300p:     { min: 300000, max: 999999 },
+    fl_any:       { min: 0,      max: 999999 },
 };
 
 // BHK option ID → search variants (include half-BHK above)
 const BHK_VARIANTS = {
-    bhk_1: ['1 bhk', '1bhk', '1.5 bhk', '1.5bhk'],
-    bhk_2: ['2 bhk', '2bhk', '2.5 bhk', '2.5bhk'],
-    bhk_3: ['3 bhk', '3bhk', '3.5 bhk', '3.5bhk'],
-    bhk_4: ['4 bhk', '4bhk', '4.5 bhk', '4.5bhk'],
+    bhk_1:   ['1 bhk', '1bhk', '1.5 bhk', '1.5bhk'],
+    bhk_2:   ['2 bhk', '2bhk', '2.5 bhk', '2.5bhk'],
+    bhk_3:   ['3 bhk', '3bhk', '3.5 bhk', '3.5bhk'],
+    bhk_4:   ['4 bhk', '4bhk', '4.5 bhk', '4.5bhk'],
+    bhk_2_3: ['2 bhk', '2bhk', '2.5 bhk', '2.5bhk', '3 bhk', '3bhk', '3.5 bhk', '3.5bhk'],
+    bhk_3_4: ['3 bhk', '3bhk', '3.5 bhk', '3.5bhk', '4 bhk', '4bhk', '4.5 bhk', '4.5bhk'],
+    // bhk_any → no entry = no BHK filter applied
 };
 
 // Possession month → months to search
@@ -512,12 +563,15 @@ function processChoice(userId, session, stepDef, chosenId) {
     // ── Custom routing: BHK → dynamic budget step ──
     if (nextStepName === '_CUSTOM_BHK_ROUTE') {
         const bhkMap = {
-            bhk_1: 'FLAT_BUDGET_1BHK',
-            bhk_2: 'FLAT_BUDGET_2BHK',
-            bhk_3: 'FLAT_BUDGET_3BHK',
-            bhk_4: 'FLAT_BUDGET_4BHK',
+            bhk_1:   'FLAT_BUDGET_1BHK',
+            bhk_2:   'FLAT_BUDGET_2BHK',
+            bhk_3:   'FLAT_BUDGET_3BHK',
+            bhk_4:   'FLAT_BUDGET_4BHK',
+            bhk_2_3: 'FLAT_BUDGET_2_3BHK',
+            bhk_3_4: 'FLAT_BUDGET_3_4BHK',
+            bhk_any: 'FLAT_BUDGET_ANY',
         };
-        const budgetStep = bhkMap[chosenId] || 'FLAT_BUDGET_1BHK';
+        const budgetStep = bhkMap[chosenId] || 'FLAT_BUDGET_ANY';
         session.currentStep = budgetStep;
         return { ...EMPTY, nextStep: FLOW_STEPS[budgetStep] };
     }
@@ -548,7 +602,7 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     // Build lead data for Zoho
     const leadData = {
         property_type: stayType,
-        area:          d.sub_area || d.area || 'N/A',
+        area:          d.area || 'N/A',
         budget:        d.budget      || 'N/A',
         gender:        d.gender      || '',
         bhk:           d.bhk         || '',
@@ -560,8 +614,7 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     let searchFilters = null;
     if (!humanHandoff) {
         searchFilters = {};
-        if (d.sub_area) searchFilters.area = d.sub_area;
-        else if (d.area) searchFilters.area = d.area;
+        if (d.area) searchFilters.area = d.area;
         if (d.budgetMinNumeric !== undefined) searchFilters.minBudget = d.budgetMinNumeric;
         if (d.budgetMaxNumeric) searchFilters.maxBudget = d.budgetMaxNumeric;
         if (d.bhkVariants) searchFilters.bhkVariants = d.bhkVariants;
@@ -572,8 +625,7 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     // Confirmation message
     let msg = `✅ *Got it! Here's what we found for you:*\n\n`;
     msg += `🏠 Type: *${stayType}*\n`;
-    if (d.sub_area)   msg += `📍 Area: *${d.sub_area}*\n`;
-    else if (d.area)  msg += `📍 Area: *${d.area}*\n`;
+    if (d.area)       msg += `📍 Area: *${d.area}*\n`;
     if (d.gender)     msg += `👤 Preference: *${d.gender}*\n`;
     if (d.bhk)        msg += `🏗️ BHK: *${d.bhk}*\n`;
     msg += `💰 Budget: *${d.budget || 'N/A'}*\n`;
@@ -770,7 +822,6 @@ function formatSearchResults(results) {
         return msg;
     }
 
-    msg += `_Questions? Reply anytime — our team will follow up!_`;
     return msg;
 }
 
