@@ -95,6 +95,9 @@ const kanakPendingMedia = {};
 const processedMessageIds = new Set();
 const MAX_PROCESSED_IDS = 10000;
 
+// Instagram: track users already DM'd (send welcome only once per user)
+const igDmSentUsers = new Set();
+
 // 60-second media grouping window
 const GROUPING_WINDOW_SECONDS = parseInt(process.env.GROUPING_WINDOW_SECONDS || '60', 10);
 const lastTextTime = {};     // { sender: timestamp_in_seconds }
@@ -375,13 +378,14 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
                     if (!ranked || ranked.length === 0) {
                         // No results — connect student to agent directly
-                        const agentPhone = assignAgent(searchFilters.area) || process.env.KANAK_PHONE_NUMBER;
-                        const agentNum   = (agentPhone || '').replace(/\D/g, '');
                         const noResultMsg = `😔 *No listings found* for your requirements right now.\n\n` +
                             `But don't worry — our agent will personally find the best options for you!\n\n` +
                             `📞 Contact our agent directly:\n` +
-                            `👉 wa.me/${agentNum}\n\n` +
-                            `_Share your requirements and they'll get back to you within 30 minutes._`;
+                            `👉 wa.me/917977070447\n\n` +
+                            `_Share your requirements and they'll get back to you within 30 minutes._\n\n` +
+                            `🔗 Check us out:\n` +
+                            `🌐 https://linktr.ee/commun.mumbai\n` +
+                            `📸 https://www.instagram.com/commun.mumbai`;
                         await sendMessage(from, noResultMsg, phoneNumberId);
                     } else {
                         const searchReply = formatSearchResults(ranked);
@@ -415,6 +419,17 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
                                 logger.error(`[WhatsApp] Photo send failed for ${listing.listingId}:`, imgErr.message);
                             }
                         }
+                    }
+
+                    // Always send closing contact message (even if listings were found)
+                    if (ranked && ranked.length > 0) {
+                        const closingMsg = `📞 For more options, contact our agent directly:\n` +
+                            `👉 wa.me/917977070447\n\n` +
+                            `_Share your requirements and they'll get back to you within 30 minutes._\n\n` +
+                            `🔗 Check us out:\n` +
+                            `🌐 https://linktr.ee/commun.mumbai\n` +
+                            `📸 https://www.instagram.com/commun.mumbai`;
+                        await sendMessage(from, closingMsg, phoneNumberId);
                     }
                 }
 
@@ -500,39 +515,65 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
             logger.info(`[Instagram] DM from ${senderId}: ${msg_body}`);
 
-            const PG_KEYWORDS = /\b(pg|flat|room|accommodation|hostel|1bhk|2bhk|3bhk|bhk|rent|available|staying|place|housing|flatmate|paying guest|vile parle|andheri|bandra|nmims)\b/i;
-            const isPGQuery = msg_body && PG_KEYWORDS.test(msg_body);
-
-            if (!isPGQuery) {
-                logger.info('[Instagram] No PG keyword — skipping auto-reply, letting team handle manually.');
+            // Skip if already sent welcome DM to this user
+            if (igDmSentUsers.has(senderId)) {
+                logger.info(`[Instagram] Already DM'd user ${senderId}, skipping.`);
                 return;
             }
 
-            const IG_DM_REPLY = `Hey! 👋 Welcome to The Commun.
-
-We help NMIMS & Vile Parle students find the perfect PG or flat — verified options, honest pricing, zero broker drama.
-
-Here's what we offer:
-✅ Verified PGs & Flats near NMIMS / Vile Parle
-✅ Areas: Vile Parle, Andheri, Bandra & nearby
-✅ Budget options from 8K to 35K+
-✅ Single, double & triple sharing available
-✅ Quick move-ins arranged
-
-Chat with us on WhatsApp to find your place and get matched with the best available options:
-👉 https://wa.me/919653240644`;
+            const IG_DM_REPLY = `Hey! 🦉\nWelcome to The Commūn's Community.\n\n` +
+                `We're here to help students and parents navigate college admissions and the move to Mumbai — from finding the right place to stay to figuring out the admission process.\n\n` +
+                `Here's what The Commūn can help you with:\n` +
+                `🏠 Hostels & Flats near major colleges\n` +
+                `🎓 Admission Guidance and Direct Admissions\n` +
+                `📚 Entrance Prep Kits\n\n` +
+                `WhatsApp: wa.me/917977070447 📲\n` +
+                `🔗 https://linktr.ee/commun.mumbai\n\n` +
+                `Let us know how we can help you, and our team would be happy to help ✨\n\n` +
+                `Love,\nThe Commūn`;
 
             try {
                 await sendInstagramMessage(senderId, IG_DM_REPLY);
+                igDmSentUsers.add(senderId);
                 logger.info('[Instagram] Sent DM with WhatsApp redirect.');
             } catch (error) {
                 logger.error('[Instagram] Error processing message:', error.message);
             }
         }
 
-        // 2b. INSTAGRAM COMMENT HANDLER — auto-reply disabled (team handles manually)
-        // const change = entry.changes?.[0]?.value;
-        // (comment auto-replies removed to prevent unwanted bot messages on every post)
+        // 2b. INSTAGRAM COMMENT HANDLER — auto-DM on any comment
+        const change = entry.changes?.[0]?.value;
+        if (change && change.id) {
+            const commentId = change.id;
+            const commenterId = change.from?.id;
+
+            // Skip if no commenter ID or if already messaged this user
+            if (!commenterId || igDmSentUsers.has(commenterId)) {
+                if (commenterId) logger.info(`[Instagram] Already DM'd user ${commenterId}, skipping.`);
+                return;
+            }
+
+            logger.info(`[Instagram] Comment from ${commenterId}: ${change.text || '(no text)'}`);
+
+            const IG_COMMENT_DM = `Hey! 🦉\nWelcome to The Commūn's Community.\n\n` +
+                `We're here to help students and parents navigate college admissions and the move to Mumbai — from finding the right place to stay to figuring out the admission process.\n\n` +
+                `Here's what The Commūn can help you with:\n` +
+                `🏠 Hostels & Flats near major colleges\n` +
+                `🎓 Admission Guidance and Direct Admissions\n` +
+                `📚 Entrance Prep Kits\n\n` +
+                `WhatsApp: wa.me/917977070447 📲\n` +
+                `🔗 https://linktr.ee/commun.mumbai\n\n` +
+                `Let us know how we can help you, and our team would be happy to help ✨\n\n` +
+                `Love,\nThe Commūn`;
+
+            try {
+                await sendInstagramPrivateReply(commentId, IG_COMMENT_DM);
+                igDmSentUsers.add(commenterId);
+                logger.info(`[Instagram] Sent welcome DM to commenter ${commenterId}`);
+            } catch (error) {
+                logger.error(`[Instagram] Comment DM failed for ${commenterId}:`, error.message);
+            }
+        }
 
         return;
     }

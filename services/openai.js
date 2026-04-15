@@ -100,35 +100,35 @@ const FLOW_STEPS = {
             { id: 'gender_coed_open', title: 'Co-ed (No restrictions)', description: 'Less / no restrictions' },
             { id: 'gender_coed_sep',  title: 'Co-ed (Separate wings)',  description: 'Restrictions apply' },
         ],
-        next: 'PG_BUDGET',
+        next: '_CUSTOM_BUDGET_ROUTE',
     },
-    PG_BUDGET: {
+    // ── PG BUDGET — Vile Parle (wider range, no single sharing) ──
+    PG_BUDGET_VP: {
         key: 'budget',
         question: '💰 Annual budget?',
         inputType: 'list',
         buttonLabel: 'Choose Budget',
         options: [
-            { id: 'pg_bud_u3',     title: 'Less than ₹3,00,000',      description: 'Only Navi Mumbai' },
-            { id: 'pg_bud_3_3.5',  title: '₹3,00,000 – ₹3,50,000',   description: 'Only Navi Mumbai' },
-            { id: 'pg_bud_4_5.5',  title: '₹4,00,000 – ₹5,50,000' },
-            { id: 'pg_bud_5.5_7',  title: '₹5,50,000 – ₹7,00,000' },
-            { id: 'pg_bud_7_8.5',  title: '₹7,00,000 – ₹8,50,000' },
-            { id: 'pg_bud_8.5_10', title: '₹8,50,000 – ₹10,00,000' },
-            { id: 'pg_bud_10p',    title: '₹10,00,000+' },
-            { id: 'pg_bud_15p',    title: '₹15L+ (Single sharing)' },
+            { id: 'pg_bud_4_5',   title: '₹4,00,000 – ₹5,00,000' },
+            { id: 'pg_bud_5_6',   title: '₹5,00,000 – ₹6,00,000' },
+            { id: 'pg_bud_6_7',   title: '₹6,00,000 – ₹7,00,000' },
+            { id: 'pg_bud_7_8',   title: '₹7,00,000 – ₹8,00,000' },
+            { id: 'pg_bud_8_9',   title: '₹8,00,000 – ₹9,00,000' },
+            { id: 'pg_bud_9p',    title: '₹9,00,000+' },
         ],
-        next: 'PG_TIMELINE',
+        next: 'DONE',
     },
 
-    // ── PG MOVE-IN TIMELINE (determines hot lead) ──
-    PG_TIMELINE: {
-        key: 'timeline',
-        question: '📅 When do you need to move in?',
-        inputType: 'button',
+    // ── PG BUDGET — BKC / South Bombay / Navi Mumbai (compact, no single sharing) ──
+    PG_BUDGET_BKC: {
+        key: 'budget',
+        question: '💰 Annual budget?',
+        inputType: 'list',
+        buttonLabel: 'Choose Budget',
         options: [
-            { id: 'tl_7d',    title: 'Within 7 days' },
-            { id: 'tl_1mo',   title: 'Within 1 month' },
-            { id: 'tl_later', title: 'After 1 month' },
+            { id: 'pg_bud_3_4',   title: '₹3,00,000 – ₹4,00,000' },
+            { id: 'pg_bud_4_5',   title: '₹4,00,000 – ₹5,00,000' },
+            { id: 'pg_bud_5p',    title: '₹5,00,000+' },
         ],
         next: 'DONE',
     },
@@ -282,13 +282,12 @@ const OPTION_LABELS = {
     // Gender
     gender_girls: 'Only Girls', gender_boys: 'Only Boys',
     gender_coed_open: 'Co-ed (No restrictions)', gender_coed_sep: 'Co-ed (Separate wings)',
-    // PG Annual Budget
-    'pg_bud_u3': 'Less than ₹3L/yr', 'pg_bud_3_3.5': '₹3L – ₹3.5L/yr',
-    'pg_bud_4_5.5': '₹4L – ₹5.5L/yr', 'pg_bud_5.5_7': '₹5.5L – ₹7L/yr',
-    'pg_bud_7_8.5': '₹7L – ₹8.5L/yr', 'pg_bud_8.5_10': '₹8.5L – ₹10L/yr',
-    pg_bud_10p: '₹10L+/yr', pg_bud_15p: '₹15L+/yr (Single sharing)',
-    // PG timeline
-    tl_7d: 'Within 7 days', tl_1mo: 'Within 1 month', tl_later: 'After 1 month',
+    // PG Annual Budget — Vile Parle
+    'pg_bud_4_5': '₹4L – ₹5L/yr', 'pg_bud_5_6': '₹5L – ₹6L/yr',
+    'pg_bud_6_7': '₹6L – ₹7L/yr', 'pg_bud_7_8': '₹7L – ₹8L/yr',
+    'pg_bud_8_9': '₹8L – ₹9L/yr', 'pg_bud_9p': '₹9L+/yr',
+    // PG Annual Budget — BKC / South / Navi
+    'pg_bud_3_4': '₹3L – ₹4L/yr', 'pg_bud_5p': '₹5L+/yr',
     // Flat possession months (dynamic — label resolved via option title at runtime)
     poss_jan: 'January', poss_feb: 'February', poss_mar: 'March',
     poss_apr: 'April',   poss_may: 'May',       poss_jun: 'June',
@@ -319,15 +318,16 @@ const OPTION_LABELS = {
 // Hostels: show selected range + everything above as "above budget"
 // Flats: selected range + next range as "in budget", rest as "above budget"
 const BUDGET_RANGE = {
-    // PG annual → monthly equivalent
-    'pg_bud_u3':     { min: 0,      max: 25000 },
-    'pg_bud_3_3.5':  { min: 25000,  max: 29167 },
-    'pg_bud_4_5.5':  { min: 33333,  max: 45833 },
-    'pg_bud_5.5_7':  { min: 45833,  max: 58333 },
-    'pg_bud_7_8.5':  { min: 58333,  max: 70833 },
-    'pg_bud_8.5_10': { min: 70833,  max: 83333 },
-    pg_bud_10p:      { min: 83333,  max: 999999 },
-    pg_bud_15p:      { min: 125000, max: 999999 },
+    // PG annual → monthly equivalent (Vile Parle budgets)
+    'pg_bud_4_5':   { min: 33333,  max: 41667 },
+    'pg_bud_5_6':   { min: 41667,  max: 50000 },
+    'pg_bud_6_7':   { min: 50000,  max: 58333 },
+    'pg_bud_7_8':   { min: 58333,  max: 66667 },
+    'pg_bud_8_9':   { min: 66667,  max: 75000 },
+    'pg_bud_9p':    { min: 75000,  max: 999999 },
+    // PG annual → monthly equivalent (BKC / South / Navi budgets)
+    'pg_bud_3_4':   { min: 25000,  max: 33333 },
+    'pg_bud_5p':    { min: 41667,  max: 999999 },
     // Flat 1 BHK (selected + next range combined as "in budget")
     fl1_75_85:  { min: 75000,  max: 100000 },
     fl1_85_100: { min: 85000,  max: 999999 },
@@ -389,7 +389,7 @@ function getPossessionMonths(selectedMonth, availableOptions) {
 
 // College group form link (Kanak to update)
 const COLLEGE_GROUP_FORM = process.env.COLLEGE_GROUP_FORM_URL || 'https://forms.gle/cEni27LvQ5PKDt229';
-const ADMISSION_PHONE = '919769167228';
+const ADMISSION_PHONE = '918169056576';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SESSION MANAGEMENT
@@ -533,7 +533,7 @@ function processChoice(userId, session, stepDef, chosenId) {
         delete sessions[userId];
         return {
             ...EMPTY,
-            replyText: `🙌 For admissions & tickets, please contact our team directly:\n\n📞 +91 97691 67228\n💬 wa.me/${ADMISSION_PHONE}\n\nThey'll help you out!`,
+            replyText: `🙌 For admissions & tickets, please contact our team directly:\n\n📞 +91 8169056576\n💬 wa.me/${ADMISSION_PHONE}\n\nThey'll help you out!`,
             humanHandoff: true,
         };
     }
@@ -546,17 +546,23 @@ function processChoice(userId, session, stepDef, chosenId) {
         return buildLeadCompletion(userId, session, true);
     }
 
-    // ── Custom routing: Area → Stay type or direct to hostel ──
+    // ── Custom routing: Area → Gender (flats paused for VP) ──
     if (nextStepName === '_CUSTOM_AREA_ROUTE') {
-        if (chosenId === 'area_svkm') {
-            // Vile Parle has both flats & hostels → ask stay type
-            session.currentStep = 'STAY_TYPE';
-            return { ...EMPTY, nextStep: FLOW_STEPS['STAY_TYPE'] };
+        // All areas go directly to PG flow (Vile Parle flats paused)
+        session.data.stay_type = 'PG / Hostel';
+        session.currentStep = 'PG_GENDER';
+        return { ...EMPTY, nextStep: FLOW_STEPS['PG_GENDER'] };
+    }
+
+    // ── Custom routing: Gender → area-specific PG budget ──
+    if (nextStepName === '_CUSTOM_BUDGET_ROUTE') {
+        const area = session.data.area || '';
+        if (area.includes('Vile Parle') || area.includes('Juhu') || area.includes('Andheri')) {
+            session.currentStep = 'PG_BUDGET_VP';
+            return { ...EMPTY, nextStep: FLOW_STEPS['PG_BUDGET_VP'] };
         } else {
-            // All other areas → only hostels available
-            session.data.stay_type = 'PG / Hostel';
-            session.currentStep = 'PG_GENDER';
-            return { ...EMPTY, nextStep: FLOW_STEPS['PG_GENDER'] };
+            session.currentStep = 'PG_BUDGET_BKC';
+            return { ...EMPTY, nextStep: FLOW_STEPS['PG_BUDGET_BKC'] };
         }
     }
 
@@ -592,11 +598,12 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     const timeline   = d.timeline   || '';
     const possession = d.possession || '';
 
-    // Hot lead: PG "Within 7 days" OR flat possession is current or next month
+    // Hot lead: all PG leads (no timeline step) OR flat possession is current or next month
     const now = new Date();
     const thisMonth = now.toLocaleString('en-US', { month: 'long' });
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleString('en-US', { month: 'long' });
-    const isHotLead = timeline === 'Within 7 days' ||
+    const isPG = stayType.includes('PG') || stayType.includes('Hostel');
+    const isHotLead = isPG ||
                       possession === thisMonth || possession === nextMonth;
 
     // Build lead data for Zoho
@@ -632,6 +639,12 @@ function buildLeadCompletion(userId, session, humanHandoff) {
     if (timeline)     msg += `📅 Move-in: *${timeline}*\n`;
     if (d.possessionMonths) msg += `📅 Showing for: *${d.possessionMonths.join(', ')}*\n`;
     else if (possession)    msg += `📅 Possession: *${possession}*\n`;
+
+    // Vile Parle: note that more options will be shared personally
+    const areaStr = d.area || '';
+    if (areaStr.includes('Vile Parle') || areaStr.includes('Juhu') || areaStr.includes('Andheri')) {
+        msg += `\n💡 *We have more options — our team will send them once they contact you personally.*`;
+    }
 
     msg += `\n🔍 *Searching our inventory for the best matches...*`;
 
