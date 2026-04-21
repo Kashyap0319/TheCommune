@@ -323,7 +323,6 @@ async function processDueFollowUps() {
 async function sendBulkMessage(phones, message, delayMs = 1500) {
     if (!phones || phones.length === 0) return { sent: 0, failed: 0, errors: [] };
 
-    const sendDirect = getSendMessage();
     const sendTemplate = getSendTemplate();
     let sent = 0, failed = 0;
     const errors = [];
@@ -332,19 +331,12 @@ async function sendBulkMessage(phones, message, delayMs = 1500) {
         const p = String(phone).replace(/\D/g, '');
         if (!p) continue;
         try {
-            // Try direct message first (clean, no template wrapper). Works within 24h window.
-            await sendDirect(p, message, STUDENT_PHONE_ID());
+            await sendTemplate(p, BROADCAST_TEMPLATE, STUDENT_PHONE_ID(), message);
             sent++;
         } catch (err) {
-            // Fallback to template if outside 24h window
-            try {
-                await sendTemplate(p, BROADCAST_TEMPLATE, STUDENT_PHONE_ID(), message);
-                sent++;
-            } catch (err2) {
-                failed++;
-                errors.push({ phone: p, error: err2.message });
-                logger.error(`[Bulk] Failed for ${p}:`, err2.message);
-            }
+            failed++;
+            errors.push({ phone: p, error: err.message });
+            logger.error(`[Bulk] Failed for ${p}:`, err.message);
         }
         if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
     }
