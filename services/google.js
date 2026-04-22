@@ -98,12 +98,13 @@ async function uploadToDrive(fileStream, fileName, mimeType) {
     }
 }
 
-// ── Column layout (17 columns A–Q) ──────────────────────────────────────────
+// ── Column layout (22 columns A–V) ──────────────────────────────────────────
 // A=ListingID  B=Status     C=Area        D=BHK/Type    E=Rent
-// F=Furnishing G=Avail Date H=Floor       I=Amenities
+// F=Furnishing G=Avail Date H=Floor       I=Amenities/Services
 // J=Photo 1    K=Photo 2    L=Photo 3     M=Photo 4
 // N=Video 1    O=Video 2
 // P=Listed On  Q=Raw Message
+// R=Property_Name  S=Sharing  T=Restrictions  U=Exclusions  V=Property_Category
 const PHOTO_COLS  = ['J', 'K', 'L', 'M']; // indices 9–12
 const VIDEO_COLS  = ['N', 'O'];            // indices 13–14
 
@@ -137,7 +138,7 @@ async function appendToInventorySheet(listingId, propertyData, mediaLinks, sende
             propertyData.furnishing || '',                              // F
             propertyData.possession_date || '',                         // G
             propertyData.floor || '',                                   // H
-            propertyData.amenities || '',                               // I
+            propertyData.services || propertyData.amenities || '',      // I
             hyperlink(photos[0], 'Photo 1'),                            // J
             hyperlink(photos[1], 'Photo 2'),                            // K
             hyperlink(photos[2], 'Photo 3'),                            // L
@@ -146,11 +147,16 @@ async function appendToInventorySheet(listingId, propertyData, mediaLinks, sende
             hyperlink(videos[1], 'Video 2'),                            // O
             new Date().toISOString(),                                   // P
             rawMessage,                                                 // Q
+            propertyData.property_name || propertyData.building_name || '', // R
+            propertyData.sharing || '',                                 // S
+            propertyData.restrictions || '',                            // T
+            propertyData.exclusions || '',                              // U
+            propertyData.property_category || '',                       // V
         ];
 
         const response = await sheets.spreadsheets.values.append({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A:Q',
+            range: 'Sheet1!A:V',
             valueInputOption: 'USER_ENTERED',
             resource: { values: [row] },
         });
@@ -176,7 +182,7 @@ async function getSheetRows() {
     }
     const response = await sheets.spreadsheets.values.get({
         spreadsheetId: GOOGLE_SHEET_ID,
-        range: 'Sheet1!A:Q',
+        range: 'Sheet1!A:V',
         valueRenderOption: 'FORMULA',
     });
     _sheetCache = response.data.values || [];
@@ -221,7 +227,9 @@ async function searchInventory(filters) {
         for (let i = 1; i < rows.length; i++) {
             const [listingId, status, area, bhkType, rent, furnishing,
                 availableDate, floor, amenities,
-                p1, p2, p3, p4, v1, v2] = rows[i];
+                p1, p2, p3, p4, v1, v2,
+                listedOn, rawMsg,
+                propertyName, sharing, restrictions, exclusions, propertyCategory] = rows[i];
 
             if (!listingId) continue;
 
@@ -250,12 +258,14 @@ async function searchInventory(filters) {
             }
 
             // Budget filter — exclude below minimum, flag above maximum
+            // Normalize rent to monthly: if value > 1L, it's likely annual — divide by 12
             let aboveBudget = false;
             if (isAvailable && rent) {
                 const numericRent = parseInt(String(rent).replace(/[^0-9]/g, ''), 10);
                 if (!isNaN(numericRent)) {
-                    if (filters.minBudget !== undefined && numericRent < filters.minBudget) continue;
-                    if (filters.maxBudget && filters.maxBudget < 999999 && numericRent > filters.maxBudget) aboveBudget = true;
+                    const monthlyRent = numericRent > 100000 ? Math.round(numericRent / 12) : numericRent;
+                    if (filters.minBudget !== undefined && monthlyRent < filters.minBudget) continue;
+                    if (filters.maxBudget && filters.maxBudget < 999999 && monthlyRent > filters.maxBudget) aboveBudget = true;
                 }
             }
 
@@ -289,6 +299,12 @@ async function searchInventory(filters) {
                 availableDate: availableDate || '',
                 floor:         floor         || '',
                 amenities:     amenities     || '',
+                services:      amenities     || '',
+                propertyName:  propertyName  || '',
+                sharing:       sharing       || '',
+                restrictions:  restrictions  || '',
+                exclusions:    exclusions    || '',
+                propertyCategory: propertyCategory || '',
                 photoLinks,
                 videoLinks,
                 aboveBudget,

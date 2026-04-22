@@ -779,19 +779,53 @@ function formatSearchResults(results) {
         return `😔 No matching listings found right now.\n\nWe'll notify you as soon as something comes in! Our team will also manually search for the best options.`;
     }
 
-    const inBudget    = results.filter(r => r.status === 'AVAILABLE' && !r.aboveBudget).slice(0, 5);
-    const aboveBudget = results.filter(r => r.status === 'AVAILABLE' && r.aboveBudget).slice(0, 3);
-    const closed      = results.filter(r => r.status !== 'AVAILABLE').slice(0, 2);
+    // Filter out garbage listings — must have at least area + rent OR bhk + rent
+    const valid = results.filter(r => r.rent && (r.area || r.bhk));
+
+    const inBudget    = valid.filter(r => r.status === 'AVAILABLE' && !r.aboveBudget).slice(0, 5);
+    const aboveBudget = valid.filter(r => r.status === 'AVAILABLE' && r.aboveBudget).slice(0, 3);
+    const closed      = valid.filter(r => r.status !== 'AVAILABLE').slice(0, 2);
+
+    // Format rent as annual (numbers > 100000 are annual; smaller = monthly, convert)
+    function formatRent(rent) {
+        const n = Number(String(rent).replace(/[^0-9]/g, ''));
+        if (!n) return '';
+        // If under 1 lakh, assume monthly — convert to annual
+        const annual = n < 100000 ? n * 12 : n;
+        // Pretty format: ₹6,78,000/yr
+        return `₹${annual.toLocaleString('en-IN')}/yr`;
+    }
 
     function formatListing(r, num) {
         let s = '';
-        const title = [r.bhk, r.area].filter(Boolean).join(' — ');
-        s += `*${num}. ${title || 'Property'}*\n`;
-        if (r.rent)          s += `💰 ₹${r.rent}/month\n`;
-        if (r.furnishing)    s += `🛋️ ${r.furnishing}\n`;
-        if (r.floor)         s += `🏢 Floor: ${r.floor}\n`;
+        const isPG = /pg|hostel/i.test(r.propertyCategory || '') || /pg|hostel/i.test(r.bhk || '');
+        const isSA = /serviced/i.test(r.propertyCategory || '');
+
+        // Title
+        const titleParts = [r.propertyName, r.bhk, r.area].filter(Boolean);
+        const title = titleParts.length ? titleParts.join(' — ') : 'Property';
+        s += `*${num}. ${title}*\n`;
+
+        // Category-specific display
+        if (isSA) {
+            if (r.bhk && !titleParts.includes(r.bhk)) s += `🛏️ ${r.bhk}\n`;
+            if (r.sharing)        s += `👥 Sharing: ${r.sharing}\n`;
+            if (r.rent)           s += `💰 ${formatRent(r.rent)}\n`;
+            if (r.restrictions)   s += `⚠️ ${r.restrictions}\n`;
+            if (r.amenities)      s += `✨ ${r.amenities}\n`;
+            if (r.exclusions)     s += `❌ Exclusions: ${r.exclusions}\n`;
+        } else if (isPG) {
+            if (r.sharing)        s += `👥 Sharing: ${r.sharing}\n`;
+            if (r.rent)           s += `💰 ${formatRent(r.rent)}\n`;
+            if (r.restrictions)   s += `⚠️ ${r.restrictions}\n`;
+            if (r.amenities)      s += `✨ ${r.amenities}\n`;
+        } else {
+            if (r.rent)           s += `💰 ${formatRent(r.rent)}\n`;
+            if (r.furnishing)     s += `🛋️ ${r.furnishing}\n`;
+            if (r.amenities)      s += `✨ ${r.amenities}\n`;
+        }
+
         if (r.availableDate) s += `📅 Available: ${r.availableDate}\n`;
-        if (r.amenities)     s += `✨ ${r.amenities}\n`;
         if (r.photoLinks && r.photoLinks.length > 0) s += `📸 ${r.photoLinks.length} photo(s) below\n`;
         if (r.videoLinks && r.videoLinks.length > 0) {
             r.videoLinks.forEach((v, vi) => s += `🎥 Video ${vi + 1}: ${v}\n`);
@@ -844,7 +878,9 @@ function formatSearchResults(results) {
 
 async function parsePropertyListing(text) {
     const empty = {
-        property_type: '', furnishing: '', location: '', building_name: '',
+        property_category: '', property_type: '', property_name: '',
+        furnishing: '', location: '', building_name: '',
+        sharing: '', restrictions: '', services: '', exclusions: '',
         nearby_landmark: '', rent_min: '', rent_max: '', security_deposit: '',
         possession_date: '', floor: '', amenities: '', extra_notes: ''
     };
@@ -853,30 +889,40 @@ async function parsePropertyListing(text) {
         const result = await model.generateContent(
             `You are a property listing parser for a Mumbai real estate business.\n` +
             `Extract details from this broker message and return ONLY a valid JSON object.\n\n` +
-            `STRICT RULES:\n` +
-            `- "rent_min" and "rent_max": NUMBERS ONLY (no ₹, no text, no furnishing info). E.g. 30000\n` +
-            `  If a single rent is given, put it in rent_min only.\n` +
-            `  If a range like "25000-35000", put 25000 in rent_min and 35000 in rent_max.\n` +
-            `- "furnishing": ONLY one of "Furnished", "Semi-Furnished", "Unfurnished" — nothing else.\n` +
-            `- "amenities": everything else (AC, geyser, parking, gym, etc.) as a short comma-separated string.\n` +
-            `- "floor": floor number or description e.g. "3rd floor", "Ground", "Top floor".\n` +
-            `- "property_type": ALWAYS use the specific BHK count if mentioned anywhere (e.g. "3 BHK", "2 BHK", "1 BHK"). ONLY use generic labels like "Studio", "PG", "1RK", "Serviced Apartment" if NO BHK number is given. BHK info takes priority over any generic label.\n` +
-            `- "rent_min" and "rent_max": Extract the EXACT number given. If text says "annually" or "/year", keep the annual number as-is. If "monthly" or "/month", keep monthly. DO NOT convert between annual and monthly.\n` +
-            `- "location": area name only e.g. "Vile Parle West", "Andheri East".\n` +
-            `- "possession_date": e.g. "Immediate", "1st April", "15 May 2025".\n` +
-            `- "security_deposit": numbers only.\n` +
-            `- "building_name": building/society name if mentioned.\n` +
-            `- "extra_notes": anything that doesn't fit above fields.\n\n` +
-            `Fields: property_type, furnishing, location, building_name, nearby_landmark, rent_min, rent_max, security_deposit, possession_date, floor, amenities, extra_notes\n\n` +
-            `Broker message:\n${sanitizeForPrompt(text, 1000)}\n\n` +
-            `Return only JSON, no explanation.`
+            `CATEGORIES:\n` +
+            `- "property_category": MUST be one of: "Serviced Apartment", "PG/Hostel", "Flat".\n` +
+            `   * If text mentions "Serviced Apartment" or "SA" → "Serviced Apartment"\n` +
+            `   * If text mentions "PG", "Hostel", "paying guest" → "PG/Hostel"\n` +
+            `   * Otherwise → "Flat"\n\n` +
+            `FIELDS:\n` +
+            `- "property_type": Specific BHK if mentioned (e.g. "3 BHK", "2 BHK", "1 BHK"). Only use "Studio"/"1RK" if no BHK given.\n` +
+            `- "property_name": Name of the property/building (e.g. "Varsity by Union", "Hive Insignia").\n` +
+            `- "building_name": Same as property_name if present.\n` +
+            `- "sharing": One of "Single", "Double", "Triple" if mentioned.\n` +
+            `- "location": Area name only (e.g. "Vile Parle West", "Santacruz West").\n` +
+            `- "rent_min" and "rent_max": NUMBERS ONLY. Keep EXACTLY as given — if "annually"/"/year" keep annual number, if "monthly"/"/month" keep monthly. DO NOT convert.\n` +
+            `- "furnishing": ONLY "Furnished", "Semi-Furnished", or "Unfurnished".\n` +
+            `- "restrictions": Restrictions mentioned (e.g. "No restrictions", "Girls only", "No non-veg", "No couples").\n` +
+            `- "services": Inclusions/services as comma-separated string (e.g. "Gym, Wi-Fi, Housekeeping, Breakfast, Laundry").\n` +
+            `- "exclusions": Things NOT included if mentioned (e.g. "Electricity extra, Dinner not included").\n` +
+            `- "amenities": Same as services (for backward compat).\n` +
+            `- "possession_date": e.g. "Immediate", "1st June", "15 May 2025".\n` +
+            `- "floor": Floor number if mentioned.\n` +
+            `- "security_deposit": Numbers only.\n` +
+            `- "extra_notes": Anything not covered above.\n\n` +
+            `Return only JSON. Broker message:\n${sanitizeForPrompt(text, 1500)}`
         );
         const raw = result.response.text().trim().replace(/^```json[\s\S]*?```$|^```[\s\S]*?```$/gm, s => s.replace(/^```json\n?|^```\n?|\n?```$/g, '')).trim();
         const parsed = JSON.parse(raw);
-        // Sanitise: rent fields must be numeric strings
         if (parsed.rent_min) parsed.rent_min = String(parsed.rent_min).replace(/[^0-9]/g, '');
         if (parsed.rent_max) parsed.rent_max = String(parsed.rent_max).replace(/[^0-9]/g, '');
         if (parsed.security_deposit) parsed.security_deposit = String(parsed.security_deposit).replace(/[^0-9]/g, '');
+        // Back-compat: if services set but amenities empty, copy
+        if (parsed.services && !parsed.amenities) parsed.amenities = parsed.services;
+        if (parsed.amenities && !parsed.services) parsed.services = parsed.amenities;
+        // property_name fallback
+        if (!parsed.property_name && parsed.building_name) parsed.property_name = parsed.building_name;
+        if (!parsed.building_name && parsed.property_name) parsed.building_name = parsed.property_name;
         return { ...empty, ...parsed };
     } catch (error) {
         logger.error('[Gemini] parsePropertyListing error:', error.message);
@@ -888,28 +934,64 @@ async function parsePropertyListing(text) {
 // LISTING CONFIRMATION (Module F — Broker bot)
 // ─────────────────────────────────────────────────────────────────────────────
 
+function formatRentDisplay(rentMin, rentMax) {
+    const toAnnual = (v) => {
+        const n = Number(String(v || '').replace(/[^0-9]/g, ''));
+        if (!n) return null;
+        return n < 100000 ? n * 12 : n;
+    };
+    const a = toAnnual(rentMin);
+    const b = toAnnual(rentMax);
+    if (!a) return 'N/A';
+    if (b && b !== a) return `₹${a.toLocaleString('en-IN')} – ₹${b.toLocaleString('en-IN')}/year`;
+    return `₹${a.toLocaleString('en-IN')}/year`;
+}
+
 function generateListingConfirmation(listingId, propertyData, mediaLinks) {
-    const type       = propertyData.property_type || 'Property';
+    const category   = propertyData.property_category || '';
+    const isPG       = /pg|hostel/i.test(category) || /pg|hostel/i.test(propertyData.property_type || '');
+    const isSA       = /serviced/i.test(category);
+
+    const name       = propertyData.property_name || propertyData.building_name || '';
+    const bhk        = propertyData.property_type || '';
+    const sharing    = propertyData.sharing || '';
     const location   = propertyData.location || 'N/A';
-    const rent       = propertyData.rent_min
-        ? (propertyData.rent_max && propertyData.rent_max !== propertyData.rent_min
-            ? `₹${propertyData.rent_min} – ₹${propertyData.rent_max}`
-            : `₹${propertyData.rent_min}`)
-        : 'N/A';
-    const furnishing = propertyData.furnishing || '';
-    const building   = propertyData.building_name || '';
+    const rent       = formatRentDisplay(propertyData.rent_min, propertyData.rent_max);
+    const restrictions = propertyData.restrictions || '';
+    const services   = propertyData.services || propertyData.amenities || '';
+    const exclusions = propertyData.exclusions || '';
     const possession = propertyData.possession_date || '';
+    const furnishing = propertyData.furnishing || '';
 
     let msg = `✅ *Listing Saved!*\n\n`;
     msg += `🆔 Listing ID: *${listingId}*\n`;
-    msg += `🏠 ${type}${building ? ' — ' + building : ''}\n`;
-    msg += `📍 ${location}\n`;
-    msg += `💰 Rent: ${rent}`;
-    if (furnishing) msg += ` | ${furnishing}`;
-    msg += `\n`;
-    if (possession) msg += `📅 Available: ${possession}\n`;
-    if (propertyData.amenities) msg += `✨ ${propertyData.amenities}\n`;
-    if (mediaLinks && mediaLinks.length > 0) msg += `📸 ${mediaLinks.length} photo(s) attached\n`;
+
+    if (isSA) {
+        msg += `🏠 *Serviced Apartment*${name ? ' — ' + name : ''}\n`;
+        if (bhk)        msg += `🛏️ ${bhk}\n`;
+        if (sharing)    msg += `👥 Sharing: ${sharing}\n`;
+        msg += `📍 ${location}\n`;
+        msg += `💰 ${rent}\n`;
+        if (restrictions) msg += `⚠️ Restrictions: ${restrictions}\n`;
+        if (services)     msg += `✨ Services: ${services}\n`;
+        if (exclusions)   msg += `❌ Exclusions: ${exclusions}\n`;
+    } else if (isPG) {
+        msg += `🏠 *PG/Hostel*${name ? ' — ' + name : ''}\n`;
+        if (sharing)    msg += `👥 Sharing: ${sharing}\n`;
+        msg += `📍 ${location}\n`;
+        msg += `💰 ${rent}\n`;
+        if (restrictions) msg += `⚠️ Restrictions: ${restrictions}\n`;
+        if (services)     msg += `✨ Services: ${services}\n`;
+    } else {
+        // Flat / generic
+        msg += `🏠 ${bhk || 'Property'}${name ? ' — ' + name : ''}\n`;
+        msg += `📍 ${location}\n`;
+        msg += `💰 ${rent}${furnishing ? ' | ' + furnishing : ''}\n`;
+        if (services) msg += `✨ ${services}\n`;
+    }
+
+    if (possession)  msg += `📅 Available: ${possession}\n`;
+    if (mediaLinks && mediaLinks.length > 0) msg += `📸 ${mediaLinks.length} media attached\n`;
     msg += `\n_To close this listing, send: close ${listingId}_`;
     return msg;
 }
