@@ -746,7 +746,8 @@ async function handleKanakMessage(from, message, phoneNumberId) {
                     lastListingId[from] = listingId;
                     delete kanakPendingMedia[from];
                 } else {
-                    await sendMessage(from, `📸 Photo received & uploaded! Send the listing details as text and I'll add it to the inventory.`, phoneNumberId);
+                    const mediaLabel = isVideo ? '🎥 Video' : '📸 Photo';
+                    await sendMessage(from, `${mediaLabel} received & uploaded! Send the listing details as text and I'll add it to the inventory.`, phoneNumberId);
                 }
             }
         } catch (err) {
@@ -993,21 +994,33 @@ app.get('/api/stats', async (req, res) => {
         const token = tokenRes.data.access_token;
         const headers = { Authorization: `Zoho-oauthtoken ${token}` };
 
-        const [allLeadsRes, hotLeadsRes, visitLeadsRes] = await Promise.all([
-            axios.get('https://www.zohoapis.in/crm/v3/Leads', {
-                params: { per_page: 1, fields: 'id' }, headers,
-            }),
-            axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
-                params: { criteria: '(Hot_Lead:equals:true)', per_page: 1, fields: 'id' }, headers,
-            }).catch(() => ({ data: { info: { count: 0 } } })),
-            axios.get('https://www.zohoapis.in/crm/v3/Leads/search', {
-                params: { criteria: '(Lead_Status:equals:Visit Scheduled)', per_page: 1, fields: 'id' }, headers,
-            }).catch(() => ({ data: { info: { count: 0 } } })),
-        ]);
+        // Count total records by paginating through all pages (Zoho's info.count = page count, not total)
+        async function countAll(url, params = {}) {
+            let total = 0;
+            let page = 1;
+            while (true) {
+                try {
+                    const res = await axios.get(url, {
+                        params: { ...params, per_page: 200, page, fields: 'id' },
+                        headers,
+                    });
+                    const records = res.data?.data || [];
+                    total += records.length;
+                    if (!res.data?.info?.more_records || page > 50) break; // safety: max 10,000 records
+                    page++;
+                } catch (err) {
+                    if (err.response?.status === 204) break; // no records
+                    return total;
+                }
+            }
+            return total;
+        }
 
-        const totalLeads   = allLeadsRes.data?.info?.count   || 0;
-        const hotLeads     = hotLeadsRes.data?.info?.count   || 0;
-        const visitLeads   = visitLeadsRes.data?.info?.count || 0;
+        const [totalLeads, hotLeads, visitLeads] = await Promise.all([
+            countAll('https://www.zohoapis.in/crm/v3/Leads'),
+            countAll('https://www.zohoapis.in/crm/v3/Leads/search', { criteria: '(Hot_Lead:equals:true)' }).catch(() => 0),
+            countAll('https://www.zohoapis.in/crm/v3/Leads/search', { criteria: '(Lead_Status:equals:Visit Scheduled)' }).catch(() => 0),
+        ]);
 
         // 2. Inventory counts from Google Sheets
         let availableListings = 0, closedListings = 0;

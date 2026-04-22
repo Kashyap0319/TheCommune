@@ -6,54 +6,62 @@
     <title>The Commūn — Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg: #0f1419;
-            --bg-card: #1a1f2e;
-            --bg-card-hover: #202638;
-            --bg-input: #0f1419;
-            --border: #2a3142;
-            --border-hover: #3b4358;
-            --text: #e8eaed;
-            --text-muted: #8b92a8;
-            --text-subtle: #5a6478;
-            --accent: #25d366;
-            --accent-hover: #1eb855;
-            --accent-soft: rgba(37, 211, 102, 0.1);
-            --danger: #ef4444;
-            --danger-soft: rgba(239, 68, 68, 0.1);
-            --warning: #f59e0b;
-            --warning-soft: rgba(245, 158, 11, 0.1);
-            --info: #3b82f6;
-            --info-soft: rgba(59, 130, 246, 0.1);
-            --purple: #a855f7;
-            --shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-            --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.35);
+            /* Claude-inspired palette */
+            --bg: #F5F1EB;
+            --bg-secondary: #EFEAE2;
+            --bg-card: #FFFFFF;
+            --bg-input: #FAF7F2;
+            --border: #E4DFD5;
+            --border-hover: #CFC8B9;
+            --text: #1F1E1D;
+            --text-muted: #6E6A61;
+            --text-subtle: #9C9688;
+            --accent: #CC785C;
+            --accent-hover: #B8654B;
+            --accent-soft: #F5E8E1;
+            --accent-text: #8C4A34;
+            --danger: #C44545;
+            --danger-soft: #F8E4E2;
+            --warning: #C9912F;
+            --warning-soft: #F9EECE;
+            --success: #4F7A3E;
+            --success-soft: #E5EEDD;
+            --info: #4A6D99;
+            --info-soft: #E2E9F3;
+            --shadow-sm: 0 1px 2px rgba(31, 30, 29, 0.04);
+            --shadow: 0 1px 3px rgba(31, 30, 29, 0.06), 0 4px 12px rgba(31, 30, 29, 0.04);
+            --shadow-lg: 0 4px 16px rgba(31, 30, 29, 0.08), 0 16px 48px rgba(31, 30, 29, 0.08);
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
-            background-image:
-                radial-gradient(circle at 20% 10%, rgba(37, 211, 102, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
             color: var(--text);
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
             font-size: 14px;
-            letter-spacing: -0.01em;
+            letter-spacing: -0.005em;
+            line-height: 1.5;
+        }
+
+        .serif {
+            font-family: 'Source Serif 4', 'Georgia', serif;
+            font-weight: 500;
+            letter-spacing: -0.015em;
         }
 
         /* HEADER */
         header {
-            background: rgba(26, 31, 46, 0.7);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(245, 241, 235, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 18px 32px;
+            padding: 16px 28px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -67,25 +75,27 @@
             gap: 12px;
         }
         .brand-logo {
-            width: 36px; height: 36px;
-            background: linear-gradient(135deg, #25d366 0%, #128c4a 100%);
-            border-radius: 10px;
+            width: 34px; height: 34px;
+            background: var(--accent);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 18px;
-            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+            color: white;
         }
         .brand-text h1 {
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
+            font-family: 'Source Serif 4', serif;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            line-height: 1.2;
         }
         .brand-text span {
             font-size: 11px;
             color: var(--text-muted);
             font-weight: 500;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
         }
 
@@ -102,55 +112,61 @@
             display: none;
             align-items: center;
             gap: 6px;
+            font-family: inherit;
         }
         .header-logout:hover {
-            border-color: var(--danger);
-            color: var(--danger);
+            border-color: var(--text);
+            color: var(--text);
+            background: var(--bg-card);
         }
-        #panel.active ~ header .header-logout { display: inline-flex; }
 
         .container {
-            max-width: 860px;
+            max-width: 820px;
             margin: 0 auto;
-            padding: 32px 20px 60px;
+            padding: 40px 20px 80px;
         }
 
         /* LOGIN */
         #login-screen {
-            max-width: 420px;
+            max-width: 440px;
             margin: 80px auto 0;
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 44px 36px;
+            border-radius: 16px;
+            padding: 48px 40px;
             box-shadow: var(--shadow-lg);
             text-align: center;
         }
         .lock-icon {
-            width: 56px; height: 56px;
-            margin: 0 auto 20px;
+            width: 64px; height: 64px;
+            margin: 0 auto 24px;
             background: var(--accent-soft);
-            border-radius: 16px;
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 28px;
+            color: var(--accent);
         }
         #login-screen h2 {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 6px;
+            font-family: 'Source Serif 4', serif;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
         }
-        #login-screen p {
+        #login-screen .welcome-sub {
             color: var(--text-muted);
-            margin-bottom: 28px;
-            font-size: 14px;
+            margin-bottom: 32px;
+            font-size: 15px;
+            line-height: 1.5;
         }
         #login-screen input {
             width: 100%;
             padding: 14px 16px;
             background: var(--bg-input);
-            border: 1.5px solid var(--border);
+            border: 1px solid var(--border);
             border-radius: 10px;
             font-family: inherit;
             font-size: 15px;
@@ -162,6 +178,7 @@
         #login-screen input::placeholder { color: var(--text-subtle); }
         #login-screen input:focus {
             border-color: var(--accent);
+            background: var(--bg-card);
             box-shadow: 0 0 0 3px var(--accent-soft);
         }
         #login-error {
@@ -172,11 +189,33 @@
             font-size: 13px;
             margin-bottom: 14px;
             display: none;
+            border: 1px solid rgba(196, 69, 69, 0.15);
+        }
+        .login-footer {
+            margin-top: 28px;
+            font-size: 12px;
+            color: var(--text-subtle);
         }
 
         /* PANEL */
         #panel { display: none; }
         #panel.active { display: block; }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+        .page-header h1 {
+            font-family: 'Source Serif 4', serif;
+            font-size: 34px;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+            line-height: 1.15;
+            margin-bottom: 6px;
+        }
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
 
         .card {
             background: var(--bg-card);
@@ -184,60 +223,66 @@
             border-radius: 16px;
             padding: 28px;
             margin-bottom: 20px;
-            box-shadow: var(--shadow);
-            transition: border-color 0.15s;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
         }
-        .card:hover { border-color: var(--border-hover); }
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow);
+        }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         .card-title {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 14px;
         }
         .card-icon {
-            width: 36px; height: 36px;
+            width: 40px; height: 40px;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 18px;
             flex-shrink: 0;
+            background: var(--accent-soft);
+            color: var(--accent);
         }
-        .card-icon.green { background: var(--accent-soft); }
-        .card-icon.info { background: var(--info-soft); }
+        .card-icon.info { background: var(--info-soft); color: var(--info); }
+        .card-icon.success { background: var(--success-soft); color: var(--success); }
+
         .card h2 {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 2px;
-            letter-spacing: -0.01em;
+            font-family: 'Source Serif 4', serif;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            letter-spacing: -0.015em;
+            line-height: 1.2;
         }
         .card .subtitle {
-            font-size: 12.5px;
+            font-size: 13.5px;
             color: var(--text-muted);
         }
 
         /* INPUTS */
         label {
             display: block;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 13px;
+            font-weight: 500;
             margin-bottom: 8px;
-            color: var(--text-muted);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
+            color: var(--text);
         }
 
         textarea, input[type="text"], select {
             width: 100%;
-            padding: 13px 14px;
+            padding: 12px 14px;
             background: var(--bg-input);
-            border: 1.5px solid var(--border);
+            border: 1px solid var(--border);
             border-radius: 10px;
             font-family: inherit;
             font-size: 14px;
@@ -249,27 +294,28 @@
         textarea::placeholder, input::placeholder { color: var(--text-subtle); }
         textarea:focus, input[type="text"]:focus, select:focus {
             border-color: var(--accent);
+            background: var(--bg-card);
             box-shadow: 0 0 0 3px var(--accent-soft);
         }
         select {
             appearance: none;
             -webkit-appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b92a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236E6A61' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
             background-repeat: no-repeat;
             background-position: right 12px center;
             padding-right: 36px;
             cursor: pointer;
         }
 
-        textarea { min-height: 100px; line-height: 1.5; }
-        textarea#message-input { min-height: 120px; }
+        textarea { min-height: 110px; line-height: 1.5; font-family: inherit; }
+        textarea#message-input { min-height: 130px; }
 
         .input-meta {
             display: flex;
             justify-content: space-between;
-            font-size: 11.5px;
+            font-size: 12px;
             color: var(--text-subtle);
-            margin-top: 6px;
+            margin-top: 8px;
         }
         .input-meta.warn .right { color: var(--warning); font-weight: 600; }
 
@@ -279,12 +325,12 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 12px 20px;
-            border: none;
+            padding: 11px 20px;
+            border: 1px solid transparent;
             border-radius: 10px;
             font-family: inherit;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.15s;
             letter-spacing: -0.005em;
@@ -293,70 +339,68 @@
 
         .btn-primary {
             background: var(--accent);
-            color: #0a1f12;
+            color: white;
         }
         .btn-primary:hover:not(:disabled) {
             background: var(--accent-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
         }
 
         .btn-secondary {
-            background: var(--bg-input);
+            background: var(--bg-card);
             color: var(--text);
             border: 1px solid var(--border);
         }
         .btn-secondary:hover:not(:disabled) {
             border-color: var(--border-hover);
-            background: var(--bg-card-hover);
+            background: var(--bg-input);
         }
 
-        .btn-full { width: 100%; padding: 14px; font-size: 15px; }
+        .btn-full { width: 100%; padding: 13px; font-size: 15px; }
 
         /* FILTERS ROW */
         .filter-row {
             display: grid;
             grid-template-columns: auto 1fr 1fr;
             gap: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
         .filter-row select { padding: 10px 32px 10px 12px; font-size: 13px; }
         .filter-row .btn { padding: 10px 16px; font-size: 13px; white-space: nowrap; }
 
         #load-status {
-            font-size: 12.5px;
+            font-size: 13px;
             color: var(--text-muted);
-            margin-bottom: 10px;
-            min-height: 16px;
+            margin-bottom: 12px;
+            min-height: 18px;
         }
-        #load-status.success { color: var(--accent); }
+        #load-status.success { color: var(--success); }
         #load-status.error { color: var(--danger); }
 
         /* PROGRESS */
         #progress-box {
             display: none;
-            margin-top: 18px;
-            padding: 16px;
+            margin-top: 20px;
+            padding: 16px 18px;
             background: var(--bg-input);
             border-radius: 10px;
             border: 1px solid var(--border);
         }
         .progress-bar-wrap {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--border);
             border-radius: 100px;
-            height: 6px;
+            height: 5px;
             overflow: hidden;
             margin-bottom: 10px;
         }
         .progress-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent) 0%, #34d399 100%);
+            background: var(--accent);
             border-radius: 100px;
             width: 0%;
             transition: width 0.4s ease;
         }
         .progress-label {
-            font-size: 12.5px;
+            font-size: 13px;
             color: var(--text-muted);
             font-weight: 500;
         }
@@ -370,80 +414,69 @@
             line-height: 1.5;
             display: flex;
             align-items: flex-start;
-            gap: 10px;
+            gap: 12px;
         }
         .result-ok {
-            background: var(--accent-soft);
-            border: 1px solid rgba(37, 211, 102, 0.3);
-            color: #6ee7a6;
+            background: var(--success-soft);
+            border: 1px solid rgba(79, 122, 62, 0.2);
+            color: var(--success);
         }
         .result-err {
             background: var(--danger-soft);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #f87171;
+            border: 1px solid rgba(196, 69, 69, 0.2);
+            color: var(--danger);
         }
 
         /* STATS */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 12px;
         }
         .stat-box {
             background: var(--bg-input);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 18px 16px;
+            padding: 18px 18px;
             transition: all 0.15s;
             position: relative;
             overflow: hidden;
         }
         .stat-box:hover {
             border-color: var(--border-hover);
-            transform: translateY(-2px);
+            background: var(--bg-card);
         }
-        .stat-box::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 3px; height: 100%;
-            background: var(--text-muted);
-        }
-        .stat-box.accent::before { background: var(--accent); }
-        .stat-box.hot::before { background: var(--danger); }
-        .stat-box.info::before { background: var(--info); }
-        .stat-box.warning::before { background: var(--warning); }
-        .stat-box.purple::before { background: var(--purple); }
 
         .stat-box .lbl {
-            font-size: 10.5px;
+            font-size: 12px;
             color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            margin-bottom: 8px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            letter-spacing: -0.005em;
         }
         .stat-box .num {
-            font-size: 28px;
-            font-weight: 800;
+            font-family: 'Source Serif 4', serif;
+            font-size: 30px;
+            font-weight: 600;
             color: var(--text);
             line-height: 1;
-            letter-spacing: -0.03em;
+            letter-spacing: -0.02em;
         }
         .stat-box.accent .num { color: var(--accent); }
-        .stat-box.hot .num { color: #fca5a5; }
-        .stat-box.info .num { color: #93c5fd; }
-        .stat-box.purple .num { color: #c4b5fd; }
+        .stat-box.hot .num { color: var(--danger); }
+        .stat-box.info .num { color: var(--info); }
+        .stat-box.success .num { color: var(--success); }
+        .stat-box.warning .num { color: var(--warning); }
 
         .stats-footer {
             display: flex;
             justify-content: flex-end;
-            margin-top: 14px;
+            margin-top: 16px;
         }
         #stats-refresh {
             background: none;
             border: none;
-            font-size: 12.5px;
+            font-size: 13px;
             color: var(--text-muted);
             cursor: pointer;
             padding: 6px 10px;
@@ -452,6 +485,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            font-family: inherit;
         }
         #stats-refresh:hover {
             color: var(--text);
@@ -461,19 +495,19 @@
         /* TIPS */
         .tips {
             background: var(--warning-soft);
-            border: 1px solid rgba(245, 158, 11, 0.25);
+            border: 1px solid rgba(201, 145, 47, 0.2);
             border-radius: 10px;
             padding: 14px 16px;
-            font-size: 12.5px;
-            color: #fcd34d;
+            font-size: 13px;
+            color: #8a6518;
             line-height: 1.6;
-            margin: 18px 0 22px;
+            margin: 20px 0 22px;
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: flex-start;
         }
         .tips-icon { flex-shrink: 0; font-size: 16px; }
-        .tips strong { color: #fde68a; display: block; margin-bottom: 4px; font-weight: 600; }
+        .tips strong { color: #5c4410; display: block; margin-bottom: 4px; font-weight: 600; }
 
         /* SPINNER */
         .spinner {
@@ -489,12 +523,14 @@
         /* RESPONSIVE */
         @media (max-width: 640px) {
             header { padding: 14px 18px; }
-            .container { padding: 20px 14px 40px; }
-            .card { padding: 20px 18px; }
+            .container { padding: 24px 16px 48px; }
+            .card { padding: 22px 20px; }
             .filter-row { grid-template-columns: 1fr; }
-            #login-screen { margin-top: 40px; padding: 32px 24px; }
+            #login-screen { margin-top: 40px; padding: 36px 28px; }
+            #login-screen h2 { font-size: 24px; }
+            .page-header h1 { font-size: 26px; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .stat-box .num { font-size: 24px; }
+            .stat-box .num { font-size: 26px; }
         }
     </style>
 </head>
@@ -509,7 +545,7 @@
         </div>
     </div>
     <button id="logout-btn" class="header-logout">
-        <span>↗</span> Logout
+        Logout
     </button>
 </header>
 
@@ -517,16 +553,22 @@
 
     <!-- LOGIN -->
     <div id="login-screen">
-        <div class="lock-icon">🔒</div>
-        <h2>Admin Login</h2>
-        <p>Enter your password to continue</p>
+        <div class="lock-icon">🔐</div>
+        <h2>Welcome back</h2>
+        <p class="welcome-sub">Enter your password to access the admin panel.</p>
         <div id="login-error">Wrong password. Try again.</div>
         <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" />
-        <button class="btn btn-primary btn-full" id="login-btn">Login</button>
+        <button class="btn btn-primary btn-full" id="login-btn">Continue</button>
+        <div class="login-footer">Internal use only · For authorized admins</div>
     </div>
 
     <!-- MAIN PANEL -->
     <div id="panel">
+
+        <div class="page-header">
+            <h1>Dashboard</h1>
+            <p>Manage leads, broadcast messages, and monitor platform activity.</p>
+        </div>
 
         <!-- STATS DASHBOARD -->
         <div class="card">
@@ -534,7 +576,7 @@
                 <div class="card-title">
                     <div class="card-icon info">📊</div>
                     <div>
-                        <h2>Dashboard</h2>
+                        <h2>Overview</h2>
                         <div class="subtitle">Live snapshot from Zoho CRM &amp; inventory</div>
                     </div>
                 </div>
@@ -545,14 +587,14 @@
                     <div class="num" id="s-total">—</div>
                 </div>
                 <div class="stat-box hot">
-                    <div class="lbl">🔥 Hot Leads</div>
+                    <div class="lbl">Hot Leads</div>
                     <div class="num" id="s-hot">—</div>
                 </div>
-                <div class="stat-box purple">
+                <div class="stat-box accent">
                     <div class="lbl">Visit Scheduled</div>
                     <div class="num" id="s-visit">—</div>
                 </div>
-                <div class="stat-box accent">
+                <div class="stat-box success">
                     <div class="lbl">Available Listings</div>
                     <div class="num" id="s-avail">—</div>
                 </div>
@@ -574,10 +616,10 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-title">
-                    <div class="card-icon green">📣</div>
+                    <div class="card-icon">📣</div>
                     <div>
-                        <h2>Send Bulk WhatsApp Message</h2>
-                        <div class="subtitle">Broadcast to leads from Zoho or pasted numbers</div>
+                        <h2>Broadcast Message</h2>
+                        <div class="subtitle">Send a WhatsApp message to multiple leads at once</div>
                     </div>
                 </div>
             </div>
@@ -586,7 +628,7 @@
                 <label>Phone Numbers</label>
 
                 <div class="filter-row">
-                    <button class="btn btn-primary" id="load-all-btn">📋 Load from Zoho</button>
+                    <button class="btn btn-secondary" id="load-all-btn">Load from Zoho</button>
                     <select id="area-filter">
                         <option value="">All Areas</option>
                         <option value="Vile Parle">Vile Parle</option>
@@ -609,19 +651,19 @@
                 <div id="load-status"></div>
 
                 <textarea id="phones-input" rows="6"
-                    placeholder="9819XXXXXX&#10;9920XXXXXX&#10;9768XXXXXX&#10;&#10;Or click 'Load from Zoho' above"></textarea>
+                    placeholder="9819XXXXXX&#10;9920XXXXXX&#10;9768XXXXXX"></textarea>
                 <div class="input-meta">
                     <span class="left">One number per line</span>
                     <span class="right" id="phone-count">0 numbers</span>
                 </div>
             </div>
 
-            <div style="margin-bottom:16px">
+            <div style="margin-bottom:4px">
                 <label>Message</label>
                 <textarea id="message-input" rows="5"
-                    placeholder="Type your message here...&#10;&#10;Example: Hey! 👋 New PG options available in Vile Parle starting ₹10,000/mo. Reply YES to see listings!"></textarea>
+                    placeholder="Hey! 👋 New PG options available in Vile Parle starting ₹10,000/mo. Reply YES to see listings!"></textarea>
                 <div class="input-meta" id="char-meta">
-                    <span class="left">WhatsApp limit: 1024 characters</span>
+                    <span class="left">Max 1024 characters</span>
                     <span class="right" id="char-count">0 / 1024</span>
                 </div>
             </div>
@@ -630,13 +672,13 @@
                 <span class="tips-icon">💡</span>
                 <div>
                     <strong>Before sending</strong>
-                    Keep messages short &amp; friendly. Don't send more than once a week to the same people.
+                    Keep messages short &amp; friendly. Don't broadcast more than once a week to the same people.
                     Avoid words like "FREE", "OFFER", "WIN" — WhatsApp may flag them.
                 </div>
             </div>
 
             <button class="btn btn-primary btn-full" id="send-btn">
-                <span>📤</span> Send to All
+                Send Message
             </button>
 
             <div id="progress-box">
@@ -655,7 +697,6 @@
 <script>
     const SESSION_KEY = 'tc_admin_key';
 
-    // ── LOGIN ──────────────────────────────────────────────
     function login() {
         const pw = document.getElementById('password-input').value.trim();
         if (!pw) return;
@@ -671,7 +712,7 @@
         })
         .then(r => {
             btn.disabled = false;
-            btn.innerHTML = 'Login';
+            btn.innerHTML = 'Continue';
             if (r.ok) {
                 sessionStorage.setItem(SESSION_KEY, pw);
                 showPanel();
@@ -681,7 +722,7 @@
         })
         .catch(() => {
             btn.disabled = false;
-            btn.innerHTML = 'Login';
+            btn.innerHTML = 'Continue';
             document.getElementById('login-error').style.display = 'block';
         });
     }
@@ -729,12 +770,10 @@
 
     if (sessionStorage.getItem(SESSION_KEY)) showPanel();
 
-    // ── PHONE COUNT ────────────────────────────────────────
     document.getElementById('phones-input').addEventListener('input', updatePhoneCount);
     function updatePhoneCount() {
         const lines = getPhones();
-        const el = document.getElementById('phone-count');
-        el.textContent = lines.length + ' number' + (lines.length !== 1 ? 's' : '');
+        document.getElementById('phone-count').textContent = lines.length + ' number' + (lines.length !== 1 ? 's' : '');
     }
 
     function getPhones() {
@@ -744,7 +783,6 @@
             .filter(p => p.length === 10);
     }
 
-    // ── CHAR COUNT ─────────────────────────────────────────
     document.getElementById('message-input').addEventListener('input', updateCharCount);
     function updateCharCount() {
         const len = document.getElementById('message-input').value.length;
@@ -755,7 +793,6 @@
         else meta.classList.remove('warn');
     }
 
-    // ── SEND BULK ──────────────────────────────────────────
     async function sendBulk() {
         const phones  = getPhones();
         const message = document.getElementById('message-input').value.trim();
@@ -789,11 +826,11 @@
 
             if (res.ok) {
                 const data = await res.json();
-                document.getElementById('progress-label').textContent = 'Done!';
+                document.getElementById('progress-label').textContent = 'Complete';
                 resultBox.innerHTML = `<div class="result-ok">
-                    <span style="font-size:16px">✓</span>
-                    <div><strong>Messages queued for ${data.accepted} people</strong><br>
-                    <span style="opacity:0.8">WhatsApp will deliver them over the next few minutes.</span></div>
+                    <span style="font-size:18px;line-height:1">✓</span>
+                    <div><strong style="color:#2d4a22">Queued for ${data.accepted} people</strong><br>
+                    WhatsApp will deliver them over the next few minutes.</div>
                 </div>`;
                 document.getElementById('phones-input').value = '';
                 document.getElementById('message-input').value = '';
@@ -802,29 +839,28 @@
             } else {
                 const err = await res.json().catch(() => ({}));
                 resultBox.innerHTML = `<div class="result-err">
-                    <span style="font-size:16px">✕</span>
-                    <div><strong>Error</strong><br><span style="opacity:0.8">${err.error || 'Something went wrong. Try again.'}</span></div>
+                    <span style="font-size:18px;line-height:1">✕</span>
+                    <div><strong>Error</strong><br>${err.error || 'Something went wrong. Try again.'}</div>
                 </div>`;
-                document.getElementById('progress-label').textContent = 'Failed.';
+                document.getElementById('progress-label').textContent = 'Failed';
             }
         } catch (err) {
             document.getElementById('result-box').style.display = 'block';
             document.getElementById('result-box').innerHTML = `<div class="result-err">
-                <span style="font-size:16px">✕</span>
-                <div><strong>Connection error</strong><br><span style="opacity:0.8">Could not reach server. Try again.</span></div>
+                <span style="font-size:18px;line-height:1">✕</span>
+                <div><strong>Connection error</strong><br>Could not reach server. Try again.</div>
             </div>`;
-            document.getElementById('progress-label').textContent = 'Failed.';
+            document.getElementById('progress-label').textContent = 'Failed';
         }
 
         btn.disabled = false;
-        btn.innerHTML = '<span>📤</span> Send to All';
+        btn.innerHTML = 'Send Message';
     }
 
     document.getElementById('send-btn').addEventListener('click', sendBulk);
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('stats-refresh').addEventListener('click', loadStats);
 
-    // ── LOAD FROM ZOHO ─────────────────────────────────────
     document.getElementById('load-all-btn').addEventListener('click', async function() {
         const apiKey = sessionStorage.getItem(SESSION_KEY);
         const area   = document.getElementById('area-filter').value;
@@ -851,10 +887,10 @@
             const lines = data.phones.map(p => p.slice(-10)).join('\n');
             document.getElementById('phones-input').value = lines;
             updatePhoneCount();
-            statusEl.textContent = `✓ Loaded ${data.total} numbers from Zoho`;
+            statusEl.textContent = `Loaded ${data.total} numbers from Zoho`;
             statusEl.className = 'success';
         } catch (err) {
-            statusEl.textContent = '✕ ' + err.message;
+            statusEl.textContent = err.message;
             statusEl.className = 'error';
         }
 

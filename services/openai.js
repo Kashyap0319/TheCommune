@@ -761,9 +761,10 @@ Sorted by score descending. Include ALL listings.`;
         const raw = result.response.text().trim().replace(/```json|```/g, '').trim();
         const ranked = JSON.parse(raw);
 
-        return ranked
-            .filter(r => r.score > 15)
-            .map(r => ({ ...listings[r.index], score: r.score }));
+        // Keep all AI-scored listings (no threshold filter).
+        // The search filter in searchInventory already ensures area/budget/bhk match;
+        // AI ranking only reorders them. Filtering here was causing valid matches to be dropped.
+        return ranked.map(r => ({ ...listings[r.index], score: r.score }));
     } catch (err) {
         logger.warn('[Gemini] Ranking failed, falling back to original order:', err.message);
         return listings;
@@ -905,7 +906,7 @@ async function parsePropertyListing(text) {
             `   * Otherwise → "Flat"\n\n` +
             `FIELDS:\n` +
             `- "property_type": Specific BHK if mentioned (e.g. "3 BHK", "2 BHK", "1 BHK"). Only use "Studio"/"1RK" if no BHK given.\n` +
-            `- "property_name": Name of the property/building (e.g. "Varsity by Union", "Hive Insignia").\n` +
+            `- "property_name": Extract the SPECIFIC named building/property. If text says "at Insignia by Hive" extract "Insignia by Hive". If text says "Terra by Union" extract "Terra by Union". If text says "Property: 2 BHK at ABC Society" extract "ABC Society". Look for patterns like "at <Name>", "by <Name>", "<Name> building", "<Name> society".\n` +
             `- "building_name": Same as property_name if present.\n` +
             `- "sharing": One of "Single", "Double", "Triple" if mentioned.\n` +
             `- "location": Area name only (e.g. "Vile Parle West", "Santacruz West").\n` +
