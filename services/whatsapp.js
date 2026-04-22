@@ -104,7 +104,9 @@ async function downloadMedia(url) {
         const response = await axios.get(url, {
             headers: { 'Authorization': `Bearer ${WA_ACCESS_TOKEN}` },
             responseType: 'stream',
-            timeout: 30000,
+            timeout: 180000, // 3 min — videos can be large
+            maxContentLength: 100 * 1024 * 1024, // 100 MB
+            maxBodyLength: 100 * 1024 * 1024,
         });
         return response;
     } catch (error) {
