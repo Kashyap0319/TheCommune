@@ -860,7 +860,8 @@ async function parsePropertyListing(text) {
             `- "furnishing": ONLY one of "Furnished", "Semi-Furnished", "Unfurnished" — nothing else.\n` +
             `- "amenities": everything else (AC, geyser, parking, gym, etc.) as a short comma-separated string.\n` +
             `- "floor": floor number or description e.g. "3rd floor", "Ground", "Top floor".\n` +
-            `- "property_type": e.g. "2BHK", "3BHK", "Studio", "PG", "1RK".\n` +
+            `- "property_type": ALWAYS use the specific BHK count if mentioned anywhere (e.g. "3 BHK", "2 BHK", "1 BHK"). ONLY use generic labels like "Studio", "PG", "1RK", "Serviced Apartment" if NO BHK number is given. BHK info takes priority over any generic label.\n` +
+            `- "rent_min" and "rent_max": Extract the EXACT number given. If text says "annually" or "/year", keep the annual number as-is. If "monthly" or "/month", keep monthly. DO NOT convert between annual and monthly.\n` +
             `- "location": area name only e.g. "Vile Parle West", "Andheri East".\n` +
             `- "possession_date": e.g. "Immediate", "1st April", "15 May 2025".\n` +
             `- "security_deposit": numbers only.\n` +
