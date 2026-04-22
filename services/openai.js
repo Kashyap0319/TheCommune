@@ -846,11 +846,19 @@ function formatSearchResults(results) {
         aboveBudget.forEach((r, i) => { msg += formatListing(r, inBudget.length + i + 1); });
     }
 
+    function shortRent(rent) {
+        const n = Number(String(rent || '').replace(/[^0-9]/g, ''));
+        if (!n) return '';
+        const annual = n < 100000 ? n * 12 : n;
+        return `₹${annual.toLocaleString('en-IN')}/yr`;
+    }
+
     if (closed.length > 0) {
         msg += `🔒 *Similar options (recently taken):*\n`;
         closed.forEach((r) => {
-            const title = [r.bhk, r.area].filter(Boolean).join(' — ');
-            msg += `• ${title || 'Property'}${r.rent ? ' — ₹' + r.rent + '/mo' : ''} _(taken)_\n`;
+            const titleParts = [r.propertyName, r.bhk, r.area].filter(Boolean);
+            const title = titleParts.join(' — ') || 'Property';
+            msg += `• ${title}${r.rent ? ' — ' + shortRent(r.rent) : ''} _(taken)_\n`;
         });
         msg += `\n`;
     }
@@ -860,8 +868,9 @@ function formatSearchResults(results) {
         if (closed.length > 0) {
             msg += `🔒 *Similar options that were recently available:*\n`;
             closed.forEach((r) => {
-                const title = [r.bhk, r.area].filter(Boolean).join(' — ');
-                msg += `• ${title || 'Property'}${r.rent ? ' — ₹' + r.rent + '/mo' : ''} _(taken)_\n`;
+                const titleParts = [r.propertyName, r.bhk, r.area].filter(Boolean);
+                const title = titleParts.join(' — ') || 'Property';
+                msg += `• ${title}${r.rent ? ' — ' + shortRent(r.rent) : ''} _(taken)_\n`;
             });
             msg += `\n`;
         }

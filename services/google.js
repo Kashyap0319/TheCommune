@@ -211,10 +211,15 @@ function extractUrl(cell) {
  */
 // Sub-area → known roads mapping (for road-level search matching)
 const AREA_ROADS = {
-    'vile parle west': ['sv road', 'swami vivekanand', 'tejpal', 'irla', 'juhu lane', 'dadabhai road', 'lallubhai', 'gulmohar road', 'vallabhbhai patel', 'mg road', 'subhash road', 'hanuman road', 'jvpd', 'ns road'],
-    'vile parle east': ['nehru road', 'hanuman road', 'sahar', 'subhash road', 'dixit', 'nanda patkar', 'domestic airport', 'western express', 'jawaharlal nehru', 'sv road', 'ns phadke'],
-    'juhu': ['juhu tara', 'gulmohar', 'vaikunthlal mehta', 'ns road no 10', 'juhu church', 'janki kutir', 'dadabhai cross', 'indradhanush', 'indrawadan oza', 'parulekar', 'jvpd', 'cd barfiwala'],
-    'andheri west': ['link road', 'sv road', 'andheri west'],
+    'vile parle west': ['sv road', 'swami vivekanand', 'tejpal', 'irla', 'juhu lane', 'dadabhai road', 'lallubhai', 'gulmohar road', 'vallabhbhai patel', 'mg road', 'subhash road', 'hanuman road', 'jvpd', 'ns road', 'vile parle'],
+    'vile parle east': ['nehru road', 'hanuman road', 'sahar', 'subhash road', 'dixit', 'nanda patkar', 'domestic airport', 'western express', 'jawaharlal nehru', 'sv road', 'ns phadke', 'vile parle'],
+    'juhu': ['juhu tara', 'gulmohar', 'vaikunthlal mehta', 'ns road no 10', 'juhu church', 'janki kutir', 'dadabhai cross', 'indradhanush', 'indrawadan oza', 'parulekar', 'jvpd', 'cd barfiwala', 'juhu'],
+    'andheri west': ['link road', 'sv road', 'andheri west', 'dn nagar', 'd.n. nagar', 'lokhandwala', 'versova', 'seven bungalows', 'yari road', 'four bungalows', 'oshiwara', 'juhu circle', 'veera desai'],
+    'andheri east': ['andheri east', 'chakala', 'sakinaka', 'marol', 'saki naka', 'mahakali', 'jb nagar', 'sher e punjab', 'parsi wada'],
+    'bandra west': ['bandra west', 'pali hill', 'carter road', 'linking road', 'hill road', 'bandstand', 'turner road', 'perry cross'],
+    'bandra east': ['bandra east', 'kalanagar', 'bkc', 'bandra kurla', 'kherwadi', 'government colony'],
+    'santacruz west': ['santacruz west', 'santacruz', 'khar west', 'khar', 'linking road', 'sv road'],
+    'santacruz east': ['santacruz east', 'kalina', 'vakola', 'kurla', 'chunabhatti'],
 };
 
 async function searchInventory(filters) {
