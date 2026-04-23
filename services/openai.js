@@ -1020,7 +1020,7 @@ function formatRentDisplay(rentMin, rentMax) {
     return `₹${a.toLocaleString('en-IN')}/year`;
 }
 
-function generateListingConfirmation(listingId, propertyData, mediaLinks) {
+function generateListingConfirmation(listingId, propertyData, mediaLinks, mediaMimeTypes = []) {
     const category   = propertyData.property_category || '';
     const propType   = propertyData.property_type || '';
     const isPG       = /pg|hostel/i.test(category) || /pg|hostel/i.test(propType);
@@ -1036,6 +1036,14 @@ function generateListingConfirmation(listingId, propertyData, mediaLinks) {
     const exclusions = propertyData.exclusions || '';
     const possession = propertyData.possession_date || '';
     const furnishing = propertyData.furnishing || '';
+
+    // Count photos vs videos separately
+    let photoCount = 0, videoCount = 0;
+    (mediaLinks || []).forEach((_, i) => {
+        const mime = (mediaMimeTypes[i] || '').toLowerCase();
+        if (mime.startsWith('video/')) videoCount++;
+        else photoCount++;
+    });
 
     let msg = `✅ *Listing Saved!*\n\n`;
     msg += `🆔 Listing ID: *${listingId}*\n`;
@@ -1065,7 +1073,22 @@ function generateListingConfirmation(listingId, propertyData, mediaLinks) {
     }
 
     if (possession)  msg += `📅 Available: ${possession}\n`;
-    if (mediaLinks && mediaLinks.length > 0) msg += `📸 ${mediaLinks.length} media attached\n`;
+
+    // Media counts — always show, even 0
+    msg += `📸 Photos: *${photoCount}*`;
+    if (photoCount < 4) msg += ` (max 4)`;
+    msg += `\n`;
+    msg += `🎥 Videos: *${videoCount}*`;
+    if (videoCount < 2) msg += ` (max 2)`;
+    msg += `\n`;
+
+    // If media missing, show instruction to add
+    if (photoCount === 0 || videoCount === 0) {
+        msg += `\n💡 *Add more media?*\n`;
+        msg += `Send photos/videos in the next 60 seconds — they'll auto-attach to this listing.\n`;
+        msg += `Or use: *attach ${listingId}* then send media anytime.\n`;
+    }
+
     msg += `\n_To close this listing, send: close ${listingId}_`;
     return msg;
 }

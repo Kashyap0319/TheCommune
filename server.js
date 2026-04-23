@@ -741,7 +741,7 @@ async function handleKanakMessage(from, message, phoneNumberId) {
                     const mediaMimes = kanakPendingMedia[from]?.mimes || [];
                     await appendToInventorySheet(listingId, propertyData, mediaLinks, from, caption, mediaMimes);
 
-                    const confirmMsg = generateListingConfirmation(listingId, propertyData, mediaLinks);
+                    const confirmMsg = generateListingConfirmation(listingId, propertyData, mediaLinks, mediaMimes);
                     await sendMessage(from, confirmMsg, phoneNumberId);
 
                     lastTextTime[from] = Date.now() / 1000;
@@ -829,6 +829,25 @@ async function handleKanakMessage(from, message, phoneNumberId) {
             return;
         }
 
+        // attach LST-XXX → set target listing, next media uploads go to it
+        const attachMatch = text.match(/^attach\s+(LST-[A-Z0-9]+)\s*$/i);
+        if (attachMatch) {
+            const targetListingId = attachMatch[1].toUpperCase();
+            // Verify listing exists
+            const { findRowByListingId } = require('./services/google');
+            const found = await findRowByListingId(targetListingId);
+            if (!found) {
+                await sendMessage(from, `❌ Listing *${targetListingId}* not found. Check the ID and try again.`, phoneNumberId);
+                return;
+            }
+            // Set as last listing + refresh grouping window
+            lastListingId[from] = targetListingId;
+            lastTextTime[from] = Date.now() / 1000;
+            delete kanakPendingMedia[from];
+            await sendMessage(from, `📎 Attached to *${targetListingId}*. Send photos/videos now — they'll attach to this listing. (Window: 60 seconds)`, phoneNumberId);
+            return;
+        }
+
         const closeMatch = text.match(/^(?:close|taken|remove)?\s*(LST-[A-Z0-9]+)$/i);
         if (closeMatch) {
             const listingId = closeMatch[1].toUpperCase();
@@ -862,7 +881,7 @@ async function handleKanakMessage(from, message, phoneNumberId) {
 
             await appendToInventorySheet(listingId, propertyData, mediaLinks, from, text, mediaMimes);
 
-            const confirmMsg = generateListingConfirmation(listingId, propertyData, mediaLinks);
+            const confirmMsg = generateListingConfirmation(listingId, propertyData, mediaLinks, mediaMimes);
             await sendMessage(from, confirmMsg, phoneNumberId);
 
             lastTextTime[from] = Date.now() / 1000;
