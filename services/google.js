@@ -573,21 +573,31 @@ async function cleanupGarbageListings() {
  */
 async function clearAllListings() {
     try {
-        const rows = await getSheetRows();
-        const dataRowCount = Math.max(0, (rows?.length || 1) - 1);
-
-        if (dataRowCount === 0) {
-            return { cleared: 0 };
-        }
-
+        // Step 1: Clear all existing rows (including any stale/corrupted rows up to row 10000)
         await sheets.spreadsheets.values.clear({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: `Sheet1!A2:V${dataRowCount + 1}`,
+            range: `Sheet1!A2:V10000`,
+        });
+
+        // Step 2: Set proper 22-column headers in row 1
+        const headers = [
+            'Listing ID', 'Status', 'Area', 'BHK/Type', 'Rent',
+            'Furnishing', 'Possession', 'Floor', 'Services/Amenities',
+            'Photo 1', 'Photo 2', 'Photo 3', 'Photo 4',
+            'Video 1', 'Video 2',
+            'Listed On', 'Raw Message',
+            'Property Name', 'Sharing', 'Restrictions', 'Exclusions', 'Property Category',
+        ];
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A1:V1',
+            valueInputOption: 'USER_ENTERED',
+            resource: { values: [headers] },
         });
 
         invalidateSheetCache();
-        logger.warn(`[ClearAll] Cleared ${dataRowCount} listings from inventory sheet.`);
-        return { cleared: dataRowCount };
+        logger.warn(`[ClearAll] Sheet cleared and headers reset.`);
+        return { cleared: true, headersReset: true, columnCount: 22 };
     } catch (error) {
         logger.error('[ClearAll] Error:', error);
         throw error;

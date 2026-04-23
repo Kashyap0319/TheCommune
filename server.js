@@ -942,16 +942,10 @@ app.get('/api/debug-search', async (req, res) => {
             filters,
             totalRowsInSheet: rows.length - 1,
             matchCount: matching.length,
-            allRows: rows.slice(1).map(r => ({
-                listingId: r[0],
-                status: r[1],
-                area: r[2],
-                bhkType: r[3],
-                rent: r[4],
-                propertyName: r[17],
-                sharing: r[18],
-                restrictions: r[19],
-                propertyCategory: r[21],
+            rawRows: rows.slice(0, Math.min(rows.length, 10)).map((r, idx) => ({
+                rowIdx: idx,
+                length: r.length,
+                cells: r,
             })),
             matches: matching.slice(0, 10).map(m => ({
                 listingId: m.listingId, area: m.area, bhk: m.bhk, rent: m.rent,
