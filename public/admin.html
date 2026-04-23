@@ -727,7 +727,10 @@
                     <div class="num" id="s-queue">—</div>
                 </div>
             </div>
-            <div class="stats-footer">
+            <div class="stats-footer" style="gap:8px">
+                <button id="cleanup-btn" style="background:none;border:none;font-size:13px;color:var(--text-muted);cursor:pointer;padding:6px 10px;border-radius:6px;font-family:inherit;transition:all 0.15s;">
+                    🧹 Clean empty listings
+                </button>
                 <button id="stats-refresh">↻ Refresh</button>
             </div>
         </div>
@@ -1004,6 +1007,33 @@
     document.getElementById('send-btn').addEventListener('click', sendBulk);
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('stats-refresh').addEventListener('click', loadStats);
+
+    // ── CLEANUP GARBAGE LISTINGS ────────────────────────
+    document.getElementById('cleanup-btn').addEventListener('click', async function() {
+        if (!confirm('Close all listings with empty rent/area/BHK?\n\nThese are usually broken listings that failed to parse properly.')) return;
+
+        const apiKey = sessionStorage.getItem(SESSION_KEY);
+        const btn = this;
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> Cleaning...';
+
+        try {
+            const res = await fetch('/api/cleanup-listings', {
+                method: 'POST',
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed');
+            alert(`✓ Closed ${data.closed} empty listings (scanned ${data.scanned}).`);
+            loadStats();
+        } catch (err) {
+            alert('✕ Cleanup failed: ' + err.message);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    });
 
     document.getElementById('load-all-btn').addEventListener('click', async function() {
         const apiKey = sessionStorage.getItem(SESSION_KEY);

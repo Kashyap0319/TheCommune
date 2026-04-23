@@ -290,6 +290,40 @@ async function searchInventory(filters) {
                 if (!matches) continue;
             }
 
+            // Property type filter — PG students shouldn't see Serviced Apartments / Flats and vice-versa
+            if (filters.stayType) {
+                const wantsPG = /pg|hostel/i.test(filters.stayType);
+                const wantsFlat = /flat|serviced/i.test(filters.stayType);
+                const listingCat = (propertyCategory || '').toLowerCase();
+                const listingType = (bhkType || '').toLowerCase();
+
+                const isListingPG = /pg|hostel/i.test(listingCat) || /\bpg\b|\bhostel\b/i.test(listingType);
+                const isListingSA = /serviced/i.test(listingCat) || /serviced/i.test(listingType);
+                const isListingFlat = /bhk|flat/i.test(listingType) && !isListingPG;
+
+                // Skip category mismatches. Old listings (no category set) are still allowed through.
+                if (listingCat || isListingPG || isListingSA) {
+                    if (wantsPG && !isListingPG) continue;
+                    if (wantsFlat && isListingPG) continue;
+                }
+            }
+
+            // Gender / restrictions filter — match student's preference against listing's restrictions
+            if (filters.gender) {
+                const g = filters.gender.toLowerCase();
+                const rlower = (restrictions || '').toLowerCase();
+                const alower = (amenities || '').toLowerCase();
+                const combined = rlower + ' ' + alower;
+
+                // If listing specifies "girls only" or "boys only", filter accordingly
+                const isGirlsOnly = /\b(girls?\s*only|only\s*girls?|female\s*only|ladies)\b/.test(combined);
+                const isBoysOnly  = /\b(boys?\s*only|only\s*boys?|male\s*only|gents)\b/.test(combined);
+
+                if (g.includes('girls') && isBoysOnly) continue;   // student wants girls, listing is boys only
+                if (g.includes('boys')  && isGirlsOnly) continue;  // student wants boys, listing is girls only
+                // co-ed preferences don't filter out anything
+            }
+
             const photoLinks = [p1, p2, p3, p4].map(extractUrl).filter(Boolean);
             const videoLinks = [v1, v2].map(extractUrl).filter(Boolean);
 
@@ -486,6 +520,53 @@ async function createCalendarEvent(lead) {
     }
 }
 
+/**
+ * Clean up "garbage" listings — close rows where rent, area, and BHK/type are all empty.
+ * These are usually listings that got saved when parser failed (Drive invalid_grant etc).
+ */
+async function cleanupGarbageListings() {
+    try {
+        const rows = await getSheetRows();
+        if (!rows || rows.length <= 1) return { scanned: 0, closed: 0 };
+
+        let closed = 0;
+        const closedRows = [];
+
+        for (let i = 1; i < rows.length; i++) {
+            const [listingId, status, area, bhkType, rent] = rows[i];
+            if (!listingId) continue;
+            if (status && status.toUpperCase() === 'CLOSED') continue;
+
+            const hasRent = rent && String(rent).replace(/[^0-9]/g, '').length > 0;
+            const hasArea = area && String(area).trim().length > 0;
+            const hasBhk  = bhkType && String(bhkType).trim().length > 0;
+
+            // Garbage = no rent AND (no area OR no bhk)
+            if (!hasRent && (!hasArea || !hasBhk)) {
+                try {
+                    await sheets.spreadsheets.values.update({
+                        spreadsheetId: GOOGLE_SHEET_ID,
+                        range: `Sheet1!B${i + 1}`,
+                        valueInputOption: 'USER_ENTERED',
+                        resource: { values: [['CLOSED']] },
+                    });
+                    closedRows.push(listingId);
+                    closed++;
+                } catch (err) {
+                    logger.error(`[Cleanup] Failed to close row ${i + 1}:`, err.message);
+                }
+            }
+        }
+
+        invalidateSheetCache();
+        logger.info(`[Cleanup] Closed ${closed} garbage listings: ${closedRows.join(', ')}`);
+        return { scanned: rows.length - 1, closed, closedIds: closedRows };
+    } catch (error) {
+        logger.error('[Cleanup] Error:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     oauth2Client,
     uploadToDrive,
@@ -496,4 +577,5 @@ module.exports = {
     findRowByListingId,
     createCalendarEvent,
     getSheetRows,
+    cleanupGarbageListings,
 };

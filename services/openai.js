@@ -627,6 +627,8 @@ function buildLeadCompletion(userId, session, humanHandoff) {
         if (d.bhkVariants) searchFilters.bhkVariants = d.bhkVariants;
         else if (d.bhk) searchFilters.bhk = d.bhk;
         if (d.possessionMonths) searchFilters.possessionMonths = d.possessionMonths;
+        if (d.gender) searchFilters.gender = d.gender;
+        if (d.stay_type) searchFilters.stayType = d.stay_type;
     }
 
     // Confirmation message

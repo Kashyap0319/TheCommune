@@ -28,7 +28,7 @@ const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicRepl
 const { processChatMessage, formatSearchResults, rankListingsWithAI, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
 const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
 const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange, getQueueStats, assignAgent } = require('./services/automation');
-const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows } = require('./services/google');
+const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows, cleanupGarbageListings } = require('./services/google');
 
 const app = express();
 
@@ -916,6 +916,35 @@ app.post('/zoho/notify', async (req, res) => {
     } catch (err) {
         logger.error('[Zoho Notify] Error:', err.message);
     }
+});
+
+// ----------------------------------------------------
+// ADMIN: CLEANUP GARBAGE LISTINGS
+// POST /api/cleanup-listings → auto-close listings with empty rent/area/bhk
+// ----------------------------------------------------
+app.post('/api/cleanup-listings', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const result = await cleanupGarbageListings();
+        res.json(result);
+    } catch (err) {
+        logger.error('[Cleanup] Error:', err.message);
+        res.status(500).json({ error: 'Cleanup failed' });
+    }
+});
+
+// ----------------------------------------------------
+// HEALTH CHECK — for Railway/uptime monitoring
+// ----------------------------------------------------
+app.get('/healthz', (_req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: Math.round(process.uptime()),
+        timestamp: new Date().toISOString(),
+    });
 });
 
 // ----------------------------------------------------
