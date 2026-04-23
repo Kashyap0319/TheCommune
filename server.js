@@ -922,6 +922,29 @@ app.post('/zoho/notify', async (req, res) => {
 // ADMIN: DEBUG SEARCH — test what listings match given filters
 // GET /api/debug-search?area=BKC+/+Santacruz+/+Bandra&minBudget=41667&stayType=PG+/+Hostel
 // ----------------------------------------------------
+// Read wider range (A:ZZ) to detect any data beyond column V
+app.get('/api/debug-wide', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { google } = require('googleapis');
+        const { oauth2Client } = require('./services/google');
+        const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+        const r = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.GOOGLE_SHEET_ID,
+            range: 'Sheet1!A1:ZZ10',
+            valueRenderOption: 'FORMULA',
+        });
+        const rows = r.data.values || [];
+        res.json({
+            rowCount: rows.length,
+            rows: rows.map((row, i) => ({ rowIdx: i, length: row.length, cells: row })),
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/debug-search', async (req, res) => {
     const apiKey = req.headers['x-api-key'];
     if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
