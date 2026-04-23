@@ -102,6 +102,7 @@ const igDmSentUsers = new Set();
 const GROUPING_WINDOW_SECONDS = parseInt(process.env.GROUPING_WINDOW_SECONDS || '60', 10);
 const lastTextTime = {};     // { sender: timestamp_in_seconds }
 const lastListingId = {};    // { sender: last_listing_id }
+const lastListingText = {};  // { sender: last_text_hash } — for duplicate detection
 
 // ----------------------------------------------------
 // IN-MEMORY STORE CLEANUP — run every 2 hours
@@ -115,6 +116,7 @@ setInterval(() => {
         if (now - lastTextTime[key] > STORE_TTL_SECONDS) {
             delete lastTextTime[key];
             delete lastListingId[key];
+            delete lastListingText[key];
             delete kanakPendingMedia[key];
             cleaned++;
         }
@@ -843,6 +845,15 @@ async function handleKanakMessage(from, message, phoneNumberId) {
 
         logger.info(`[Kanak] Received listing text: ${text.substring(0, 80)}...`);
 
+        // Duplicate detection: same text within 60 sec → skip creating new listing
+        const textKey = text.trim().toLowerCase().slice(0, 200);
+        const now = Date.now() / 1000;
+        if (lastListingText[from] === textKey && lastTextTime[from] && (now - lastTextTime[from]) < 60) {
+            logger.info(`[Kanak] Duplicate listing text within 60s from ${from} — skipping`);
+            await sendMessage(from, `⚠️ Same listing just saved as *${lastListingId[from]}* — not creating duplicate. If this is a new listing, wait a minute and try again.`, phoneNumberId);
+            return;
+        }
+
         try {
             const listingId = generateListingId();
             const propertyData = await parsePropertyListing(text);
@@ -856,6 +867,7 @@ async function handleKanakMessage(from, message, phoneNumberId) {
 
             lastTextTime[from] = Date.now() / 1000;
             lastListingId[from] = listingId;
+            lastListingText[from] = textKey;
             delete kanakPendingMedia[from];
         } catch (err) {
             logger.error('[Kanak] Listing processing error:', err.message);

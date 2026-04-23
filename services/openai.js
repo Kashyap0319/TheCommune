@@ -886,6 +886,56 @@ function formatSearchResults(results) {
 // PROPERTY LISTING PARSER (Module F — Broker bot)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Regex-based fallback parser for structured "Key: Value" format
+// Works when Gemini is unavailable or returns bad data
+function parseListingRegex(text) {
+    const extract = (pattern) => {
+        const m = text.match(pattern);
+        return m ? m[1].trim().replace(/^["'\s]+|["'\s]+$/g, '') : '';
+    };
+    const number = (s) => String(s || '').replace(/[^0-9]/g, '');
+
+    const propertyName = extract(/Property\s*Name\s*:\s*([^\n]+)/i);
+    const typeRaw = extract(/(?:^|\n)Type\s*:\s*([^\n]+)/i);
+    const bhk = extract(/BHK\s*:\s*([^\n]+)/i);
+    const sharing = extract(/Sharing\s*:\s*([^\n]+)/i);
+    const location = extract(/Location\s*:\s*([^\n]+)/i);
+    const rentStr = extract(/(?:Annual\s*)?Rent\s*:\s*([^\n]+)/i);
+    const restrictions = extract(/Restrictions?(?:\s*Level)?\s*:\s*([^\n]+)/i);
+    const services = extract(/(?:Services|Inclusions|Amenities)\s*:\s*([^\n]+)/i);
+    const exclusions = extract(/Exclusions?\s*:\s*([^\n]+)/i);
+    const possession = extract(/Possession(?:\s*Date)?\s*:\s*([^\n]+)/i);
+    const furnishing = extract(/Furnishing\s*:\s*([^\n]+)/i);
+
+    // Determine category
+    let category = '';
+    const typeLower = (typeRaw + ' ' + text).toLowerCase();
+    if (/serviced\s*apartment|\bsa\b/i.test(typeLower)) category = 'Serviced Apartment';
+    else if (/\b(pg|hostel|paying guest)\b/i.test(typeLower)) category = 'PG/Hostel';
+    else if (typeRaw) category = 'Flat';
+
+    return {
+        property_category: category,
+        property_type: bhk || typeRaw || '',
+        property_name: propertyName,
+        building_name: propertyName,
+        sharing,
+        location,
+        rent_min: number(rentStr),
+        rent_max: '',
+        restrictions,
+        services,
+        amenities: services,
+        exclusions,
+        possession_date: possession,
+        furnishing,
+        floor: '',
+        security_deposit: '',
+        nearby_landmark: '',
+        extra_notes: '',
+    };
+}
+
 async function parsePropertyListing(text) {
     const empty = {
         property_category: '', property_type: '', property_name: '',
@@ -894,6 +944,17 @@ async function parsePropertyListing(text) {
         nearby_landmark: '', rent_min: '', rent_max: '', security_deposit: '',
         possession_date: '', floor: '', amenities: '', extra_notes: ''
     };
+
+    // Quick-check: if text has structured "Key: Value" lines, use regex parser first
+    const hasStructuredFormat = /(Property\s*Name|Annual\s*Rent|Location|BHK|Type)\s*:/i.test(text);
+    if (hasStructuredFormat) {
+        const regexResult = parseListingRegex(text);
+        // If regex extracted key fields, use that (more reliable than AI for structured input)
+        if (regexResult.property_name || regexResult.location || regexResult.rent_min) {
+            logger.info('[Parser] Used regex parser (structured format detected)');
+            return { ...empty, ...regexResult };
+        }
+    }
     try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const result = await model.generateContent(
@@ -959,8 +1020,9 @@ function formatRentDisplay(rentMin, rentMax) {
 
 function generateListingConfirmation(listingId, propertyData, mediaLinks) {
     const category   = propertyData.property_category || '';
-    const isPG       = /pg|hostel/i.test(category) || /pg|hostel/i.test(propertyData.property_type || '');
-    const isSA       = /serviced/i.test(category);
+    const propType   = propertyData.property_type || '';
+    const isPG       = /pg|hostel/i.test(category) || /pg|hostel/i.test(propType);
+    const isSA       = /serviced/i.test(category) || /serviced/i.test(propType);
 
     const name       = propertyData.property_name || propertyData.building_name || '';
     const bhk        = propertyData.property_type || '';
