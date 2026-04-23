@@ -573,13 +573,19 @@ async function cleanupGarbageListings() {
  */
 async function clearAllListings() {
     try {
-        // Step 1: Clear all existing rows (including any stale/corrupted rows up to row 10000)
+        // Step 1: Clear ALL columns (A through ZZ — covers any residual data beyond V)
         await sheets.spreadsheets.values.clear({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: `Sheet1!A2:V10000`,
+            range: `Sheet1!A2:ZZ10000`,
         });
 
-        // Step 2: Set proper 22-column headers in row 1
+        // Step 2: Also clear row 1 beyond V (in case headers existed in W+)
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: `Sheet1!W1:ZZ1`,
+        });
+
+        // Step 3: Set proper 22-column headers in row 1 (A-V)
         const headers = [
             'Listing ID', 'Status', 'Area', 'BHK/Type', 'Rent',
             'Furnishing', 'Possession', 'Floor', 'Services/Amenities',
@@ -596,7 +602,7 @@ async function clearAllListings() {
         });
 
         invalidateSheetCache();
-        logger.warn(`[ClearAll] Sheet cleared and headers reset.`);
+        logger.warn(`[ClearAll] Sheet cleared (A:ZZ) and headers reset.`);
         return { cleared: true, headersReset: true, columnCount: 22 };
     } catch (error) {
         logger.error('[ClearAll] Error:', error);
