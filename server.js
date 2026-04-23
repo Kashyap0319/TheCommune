@@ -28,7 +28,7 @@ const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicRepl
 const { processChatMessage, formatSearchResults, rankListingsWithAI, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
 const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
 const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange, getQueueStats, assignAgent } = require('./services/automation');
-const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows, cleanupGarbageListings, clearAllListings } = require('./services/google');
+const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows, cleanupGarbageListings, clearAllListings, getSheetRowsWide } = require('./services/google');
 
 const app = express();
 
@@ -927,15 +927,7 @@ app.get('/api/debug-wide', async (req, res) => {
     const apiKey = req.headers['x-api-key'];
     if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) return res.status(401).json({ error: 'Unauthorized' });
     try {
-        const { google } = require('googleapis');
-        const { oauth2Client } = require('./services/google');
-        const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
-        const r = await sheets.spreadsheets.values.get({
-            spreadsheetId: process.env.GOOGLE_SHEET_ID,
-            range: 'Sheet1!A1:ZZ10',
-            valueRenderOption: 'FORMULA',
-        });
-        const rows = r.data.values || [];
+        const rows = await getSheetRowsWide(10);
         res.json({
             rowCount: rows.length,
             rows: rows.map((row, i) => ({ rowIdx: i, length: row.length, cells: row })),

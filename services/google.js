@@ -196,6 +196,16 @@ function invalidateSheetCache() {
     _sheetCacheTime = 0;
 }
 
+// Debug helper — reads wide range (A:ZZ) to detect data beyond column V
+async function getSheetRowsWide(rowLimit = 10) {
+    const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: GOOGLE_SHEET_ID,
+        range: `Sheet1!A1:ZZ${rowLimit}`,
+        valueRenderOption: 'FORMULA',
+    });
+    return response.data.values || [];
+}
+
 // Extract raw URL from a HYPERLINK formula or plain text
 function extractUrl(cell) {
     if (!cell) return null;
@@ -622,4 +632,5 @@ module.exports = {
     getSheetRows,
     cleanupGarbageListings,
     clearAllListings,
+    getSheetRowsWide,
 };
