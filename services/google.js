@@ -567,6 +567,33 @@ async function cleanupGarbageListings() {
     }
 }
 
+/**
+ * Clears all data rows from the inventory sheet. Keeps row 1 (headers).
+ * DESTRUCTIVE — used only by explicit admin action.
+ */
+async function clearAllListings() {
+    try {
+        const rows = await getSheetRows();
+        const dataRowCount = Math.max(0, (rows?.length || 1) - 1);
+
+        if (dataRowCount === 0) {
+            return { cleared: 0 };
+        }
+
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: `Sheet1!A2:V${dataRowCount + 1}`,
+        });
+
+        invalidateSheetCache();
+        logger.warn(`[ClearAll] Cleared ${dataRowCount} listings from inventory sheet.`);
+        return { cleared: dataRowCount };
+    } catch (error) {
+        logger.error('[ClearAll] Error:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     oauth2Client,
     uploadToDrive,
@@ -578,4 +605,5 @@ module.exports = {
     createCalendarEvent,
     getSheetRows,
     cleanupGarbageListings,
+    clearAllListings,
 };

@@ -28,7 +28,7 @@ const { sendInstagramMessage, sendInstagramPrivateReply, sendInstagramPublicRepl
 const { processChatMessage, formatSearchResults, rankListingsWithAI, parsePropertyListing, transcribeAndSummarizeCall, generateListingConfirmation } = require('./services/openai');
 const { createLead, updateLead, searchLeadByPhone, createNote } = require('./services/zoho');
 const { startAutomation, enqueueLeadFollowUps, sendBulkMessage, handleZohoStageChange, getQueueStats, assignAgent } = require('./services/automation');
-const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows, cleanupGarbageListings } = require('./services/google');
+const { searchInventory, uploadToDrive, appendToInventorySheet, closeListingById, addMediaLinkToRow, createCalendarEvent, getSheetRows, cleanupGarbageListings, clearAllListings } = require('./services/google');
 
 const app = express();
 
@@ -919,6 +919,53 @@ app.post('/zoho/notify', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// ADMIN: DEBUG SEARCH — test what listings match given filters
+// GET /api/debug-search?area=BKC+/+Santacruz+/+Bandra&minBudget=41667&stayType=PG+/+Hostel
+// ----------------------------------------------------
+app.get('/api/debug-search', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const filters = {};
+        if (req.query.area) filters.area = req.query.area;
+        if (req.query.minBudget) filters.minBudget = parseInt(req.query.minBudget, 10);
+        if (req.query.maxBudget) filters.maxBudget = parseInt(req.query.maxBudget, 10);
+        if (req.query.stayType) filters.stayType = req.query.stayType;
+        if (req.query.gender) filters.gender = req.query.gender;
+
+        const rows = await getSheetRows();
+        const matching = await searchInventory(filters);
+
+        res.json({
+            filters,
+            totalRowsInSheet: rows.length - 1,
+            matchCount: matching.length,
+            allRows: rows.slice(1).map(r => ({
+                listingId: r[0],
+                status: r[1],
+                area: r[2],
+                bhkType: r[3],
+                rent: r[4],
+                propertyName: r[17],
+                sharing: r[18],
+                restrictions: r[19],
+                propertyCategory: r[21],
+            })),
+            matches: matching.slice(0, 10).map(m => ({
+                listingId: m.listingId, area: m.area, bhk: m.bhk, rent: m.rent,
+                propertyName: m.propertyName, propertyCategory: m.propertyCategory,
+                status: m.status, aboveBudget: m.aboveBudget,
+            })),
+        });
+    } catch (err) {
+        logger.error('[Debug] Error:', err.message);
+        res.status(500).json({ error: err.message, stack: err.stack });
+    }
+});
+
+// ----------------------------------------------------
 // ADMIN: GET SHEET URL — returns the Google Sheet link for viewing
 // ----------------------------------------------------
 app.get('/api/sheet-url', (req, res) => {
@@ -929,6 +976,27 @@ app.get('/api/sheet-url', (req, res) => {
     const sheetId = process.env.GOOGLE_SHEET_ID;
     if (!sheetId) return res.status(500).json({ error: 'Sheet ID not configured' });
     res.json({ url: `https://docs.google.com/spreadsheets/d/${sheetId}` });
+});
+
+// ----------------------------------------------------
+// ADMIN: CLEAR ALL LISTINGS (destructive — for fresh start)
+// POST /api/clear-all-listings  { confirm: "YES" }
+// ----------------------------------------------------
+app.post('/api/clear-all-listings', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (req.body?.confirm !== 'YES') {
+        return res.status(400).json({ error: 'Missing confirmation. Send {"confirm":"YES"} in body.' });
+    }
+    try {
+        const result = await clearAllListings();
+        res.json(result);
+    } catch (err) {
+        logger.error('[ClearAll] Error:', err.message);
+        res.status(500).json({ error: 'Clear failed: ' + err.message });
+    }
 });
 
 // ----------------------------------------------------
