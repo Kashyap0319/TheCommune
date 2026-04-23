@@ -154,15 +154,24 @@ async function appendToInventorySheet(listingId, propertyData, mediaLinks, sende
             propertyData.property_category || '',                       // V
         ];
 
-        const response = await sheets.spreadsheets.values.append({
+        // Find next empty row by reading column A — avoids Google Sheets' auto-column-detection bug
+        // that was causing data to start from column W instead of A.
+        const existing = await sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A:V',
+            range: 'Sheet1!A:A',
+        });
+        const existingRows = existing.data.values || [];
+        const nextRow = existingRows.length + 1; // 1-indexed; if only headers in row 1, next is row 2
+
+        const response = await sheets.spreadsheets.values.update({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: `Sheet1!A${nextRow}:V${nextRow}`,
             valueInputOption: 'USER_ENTERED',
             resource: { values: [row] },
         });
 
         invalidateSheetCache();
-        logger.info(`Added listing ${listingId} to Google Sheet:`, response.data.updates.updatedRange);
+        logger.info(`Added listing ${listingId} to row ${nextRow}:`, response.data.updatedRange);
         return response.data;
     } catch (error) {
         logger.error('Error appending to Google Sheet:', error);
