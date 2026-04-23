@@ -919,6 +919,19 @@ app.post('/zoho/notify', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// ADMIN: GET SHEET URL — returns the Google Sheet link for viewing
+// ----------------------------------------------------
+app.get('/api/sheet-url', (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!INTERNAL_API_KEY || apiKey !== INTERNAL_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    if (!sheetId) return res.status(500).json({ error: 'Sheet ID not configured' });
+    res.json({ url: `https://docs.google.com/spreadsheets/d/${sheetId}` });
+});
+
+// ----------------------------------------------------
 // ADMIN: CLEANUP GARBAGE LISTINGS
 // POST /api/cleanup-listings → auto-close listings with empty rent/area/bhk
 // ----------------------------------------------------

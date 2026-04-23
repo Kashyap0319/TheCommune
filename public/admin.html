@@ -731,6 +731,9 @@
                 <button id="cleanup-btn" style="background:none;border:none;font-size:13px;color:var(--text-muted);cursor:pointer;padding:6px 10px;border-radius:6px;font-family:inherit;transition:all 0.15s;">
                     🧹 Clean empty listings
                 </button>
+                <button id="view-listings-btn" style="background:none;border:none;font-size:13px;color:var(--text-muted);cursor:pointer;padding:6px 10px;border-radius:6px;font-family:inherit;transition:all 0.15s;">
+                    📋 See listings
+                </button>
                 <button id="stats-refresh">↻ Refresh</button>
             </div>
         </div>
@@ -1007,6 +1010,25 @@
     document.getElementById('send-btn').addEventListener('click', sendBulk);
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('stats-refresh').addEventListener('click', loadStats);
+
+    // ── VIEW LISTINGS (open Google Sheet) ──────────────
+    document.getElementById('view-listings-btn').addEventListener('click', async function() {
+        const apiKey = sessionStorage.getItem(SESSION_KEY);
+        const btn = this;
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> Opening...';
+        try {
+            const res = await fetch('/api/sheet-url', { headers: { 'X-API-Key': apiKey } });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed');
+            window.open(data.url, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+            alert('Could not open listings sheet: ' + err.message);
+        }
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    });
 
     // ── CLEANUP GARBAGE LISTINGS ────────────────────────
     document.getElementById('cleanup-btn').addEventListener('click', async function() {
