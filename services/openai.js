@@ -546,9 +546,9 @@ function processChoice(userId, session, stepDef, chosenId) {
         return buildLeadCompletion(userId, session, true);
     }
 
-    // ── Custom routing: Area → Gender (flats paused for VP) ──
+    // ── Custom routing: Area → Gender (flats paused) ──
     if (nextStepName === '_CUSTOM_AREA_ROUTE') {
-        // All areas go directly to PG flow (Vile Parle flats paused)
+        // All areas go directly to PG flow (single unified flow)
         session.data.stay_type = 'PG / Hostel';
         session.currentStep = 'PG_GENDER';
         return { ...EMPTY, nextStep: FLOW_STEPS['PG_GENDER'] };

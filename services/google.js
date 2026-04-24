@@ -309,27 +309,8 @@ async function searchInventory(filters) {
                 if (!matches) continue;
             }
 
-            // Property type filter — PG students see PG + SA-with-sharing (SA is essentially a premium PG)
-            // Flat students see Flats + SA (no pure-PG listings)
-            if (filters.stayType) {
-                const wantsPG = /pg|hostel/i.test(filters.stayType);
-                const wantsFlat = /flat|serviced/i.test(filters.stayType);
-                const listingCat = (propertyCategory || '').toLowerCase();
-                const listingType = (bhkType || '').toLowerCase();
-                const listingSharing = (sharing || '').toLowerCase();
-
-                const isListingPG = /pg|hostel/i.test(listingCat) || /\bpg\b|\bhostel\b/i.test(listingType);
-                const isListingSA = /serviced/i.test(listingCat) || /serviced/i.test(listingType);
-                const hasSharing  = /single|double|triple|sharing/i.test(listingSharing);
-
-                // Skip only clear mismatches. Old listings (no category set) allowed through.
-                if (listingCat || isListingPG || isListingSA) {
-                    // PG flow: skip only if it's a pure SA with no sharing (= a private flat)
-                    if (wantsPG && isListingSA && !hasSharing) continue;
-                    // Flat flow: skip PG/Hostel listings
-                    if (wantsFlat && isListingPG) continue;
-                }
-            }
+            // No strict property-type filter — show all listings in area + budget range
+            // (User preference: PG, SA, and Flat all visible regardless of student's stay_type selection)
 
             // Gender / restrictions filter — match student's preference against listing's restrictions
             if (filters.gender) {
