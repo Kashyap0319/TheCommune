@@ -727,8 +727,23 @@ async function handleKanakMessage(from, message, phoneNumberId) {
 
             if (withinWindow && lastListingId[from]) {
                 await addMediaLinkToRow(lastListingId[from], driveLink, mimeType);
-                logger.info(`[Kanak] Photo attached to listing ${lastListingId[from]}`);
-                await sendMessage(from, `📸 Photo attached to listing *${lastListingId[from]}*`, phoneNumberId);
+                const mediaLabel = isVideo ? '🎥 Video' : '📸 Photo';
+                logger.info(`[Kanak] ${mediaLabel} attached to listing ${lastListingId[from]}`);
+
+                // Count current media on this listing
+                try {
+                    const { findRowByListingId } = require('./services/google');
+                    const found = await findRowByListingId(lastListingId[from]);
+                    let photoCount = 0, videoCount = 0;
+                    if (found && found.rowData) {
+                        // Photos: J-M (indices 9-12), Videos: N-O (indices 13-14)
+                        for (let i = 9; i <= 12; i++) if (found.rowData[i]) photoCount++;
+                        for (let i = 13; i <= 14; i++) if (found.rowData[i]) videoCount++;
+                    }
+                    await sendMessage(from, `${mediaLabel} attached to listing *${lastListingId[from]}*\n📸 Photos: ${photoCount} | 🎥 Videos: ${videoCount}`, phoneNumberId);
+                } catch {
+                    await sendMessage(from, `${mediaLabel} attached to listing *${lastListingId[from]}*`, phoneNumberId);
+                }
             } else {
                 if (!kanakPendingMedia[from]) kanakPendingMedia[from] = { links: [], mimes: [] };
                 kanakPendingMedia[from].links.push(driveLink);
